@@ -5,12 +5,19 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "fabric-loom:fabric-loom.gradle.plugin:1.4-SNAPSHOT"
+        classpath "fabric-loom:fabric-loom.gradle.plugin:1.5.5"
     }
 }
 
 apply plugin: "fabric-loom"
 apply plugin: "maven-publish"
+
+loom {
+    // 防止 remap 类型错误，即使没有 mixin 也安全
+    mixin {
+        defaultRefmapName = "xianhuanbian.refmap.json"
+    }
+}
 
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(17) }
