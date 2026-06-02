@@ -1,10 +1,1 @@
-pluginManagement {
-    repositories {
-        maven { url "https://maven.fabricmc.net/" }
-        maven { url "https://mirrors.ustc.edu.cn/gradle-plugins/" }
-        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
-        gradlePluginPortal()
-        mavenCentral()
-    }
-}
 rootProject.name = 'XianHuanBian'
