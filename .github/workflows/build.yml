@@ -22,7 +22,7 @@ jobs:
         run: rm -rf ~/.gradle/caches/fabric-loom ~/.gradle/caches/modules-2 ~/.gradle/daemon
       - name: Build with Gradle
         env:
-          GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
+          GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m -Dfabric.loom.mirrors=https://bmclapi2.bangbang93.com"
         run: gradle build --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=2
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
