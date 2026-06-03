@@ -4,9 +4,14 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
 
-import java.util.Arrays;
+import java.util.*;
 
 public class PlayerBuffData {
+    // 服务端存储：玩家UUID -> 数据
+    private static final Map<UUID, PlayerBuffData> SERVER_DATA = new HashMap<>();
+    // 客户端缓存（渲染用）
+    private static PlayerBuffData CLIENT_CACHE = new PlayerBuffData();
+
     private boolean[] unlocked = new boolean[12];
     private boolean[] active = new boolean[12];
     private float[] chance = new float[10];
@@ -21,6 +26,7 @@ public class PlayerBuffData {
         Arrays.fill(chance, 0.01f);
     }
 
+    // getters/setters ...
     public boolean isUnlocked(int id) { return unlocked[id]; }
     public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
     public boolean isActive(int id) { return active[id]; }
@@ -41,31 +47,26 @@ public class PlayerBuffData {
     public float getBonusHealth() { return bonusHealth; }
     public void setBonusHealth(float v) { bonusHealth = v; }
 
-    // 从玩家持久 NBT 读取（服务端调用）
-    public static PlayerBuffData get(PlayerEntity player) {
-        NbtCompound root = player.getPersistentData();
-        NbtCompound tag = root.getCompound("xianhuanbian");
-        return fromNbt(tag);
+    // 服务端获取（如果不存在则创建）
+    public static PlayerBuffData get(ServerPlayerEntity player) {
+        return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> new PlayerBuffData());
     }
 
-    // 保存到玩家持久 NBT
+    // 服务端保存（实际上就是更新Map，不需要额外操作，但保留方法兼容）
     public void save(ServerPlayerEntity player) {
-        NbtCompound root = player.getPersistentData();
-        root.put("xianhuanbian", toNbt());
+        SERVER_DATA.put(player.getUuid(), this);
     }
 
-    // 客户端缓存（渲染用）
-    private static PlayerBuffData clientCache = new PlayerBuffData();
-
+    // 客户端缓存
     public static PlayerBuffData getClient() {
-        return clientCache;
+        return CLIENT_CACHE;
     }
 
     public static void updateClientFromNbt(NbtCompound tag) {
-        clientCache = fromNbt(tag);
+        CLIENT_CACHE = fromNbt(tag);
     }
 
-    // NBT 序列化
+    // NBT序列化
     public static PlayerBuffData fromNbt(NbtCompound tag) {
         PlayerBuffData data = new PlayerBuffData();
         for (int i = 0; i < 12; i++) {
