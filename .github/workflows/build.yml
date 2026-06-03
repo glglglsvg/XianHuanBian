@@ -19,10 +19,7 @@ jobs:
           unzip -q gradle-8.11-bin.zip
           echo "$(pwd)/gradle-8.11/bin" >> $GITHUB_PATH
 
-      - name: Verify Gradle
-        run: gradle --version
-
-      - name: Generate Gradle Wrapper with Gradle 8.11
+      - name: Generate Gradle Wrapper
         run: gradle wrapper --gradle-version 8.11 --no-daemon
 
       - name: Clean caches
