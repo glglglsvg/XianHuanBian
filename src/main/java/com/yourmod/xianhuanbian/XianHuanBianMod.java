@@ -9,6 +9,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -101,7 +102,7 @@ public class XianHuanBianMod implements ModInitializer {
             server.execute(() -> {
                 PlayerBuffData data = PlayerBuffData.get(player);
                 data.setPhaseEnabled(!data.isPhaseEnabled());
-                player.sendMessage(net.minecraft.text.Text.literal("穿透模式：" + (data.isPhaseEnabled() ? "开启" : "关闭")), false);
+        player.sendMessage(net.minecraft.text.Text.literal("穿透模式：" + (data.isPhaseEnabled() ? "开启" : "关闭")), false);
                 data.save(player);
             });
         });
@@ -113,7 +114,7 @@ public class XianHuanBianMod implements ModInitializer {
         ServerPlayNetworking.send(player, SYNC_BUFFS, buf);
     }
 
-    private static void processPhaseMovement(ServerPlayerEntity player, PlayerBuffData data) {
+    private static void processPhaseMovement(PlayerEntity player, PlayerBuffData data) {
         if (!data.isPhaseEnabled()) return;
         boolean fullPhase = data.isActive(5) && player.getAbilities().flying;
         float forward = player.input.movementForward;
@@ -148,4 +149,3 @@ public class XianHuanBianMod implements ModInitializer {
         }
     }
 }
-                                   
