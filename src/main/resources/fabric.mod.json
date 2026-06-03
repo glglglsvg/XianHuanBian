@@ -7,7 +7,7 @@
   "entrypoints": {
     "main": ["com.yourmod.xianhuanbian.XianHuanBianMod"],
     "client": ["com.yourmod.xianhuanbian.client.XianHuanBianClient"],
-    "cardinal-components": ["com.yourmod.xianhuanbian.ModComponents"]
+    "cardinal-components-entity": ["com.yourmod.xianhuanbian.ModComponents"]
   },
   "depends": {
     "fabric-api": ">=0.92.9",
