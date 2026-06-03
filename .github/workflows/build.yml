@@ -13,27 +13,22 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Download and install Gradle 8.7
+      - name: Generate Gradle Wrapper with Gradle 8.11
         run: |
-          wget -q https://mirrors.huaweicloud.com/gradle/gradle-8.7-bin.zip
-          unzip -q gradle-8.7-bin.zip
-          echo "$(pwd)/gradle-8.7/bin" >> $GITHUB_PATH
+          # 确保 gradlew 指向 8.11 的 wrapper
+          ./gradlew wrapper --gradle-version 8.11 --no-daemon
+        continue-on-error: false
 
-      - name: Verify Gradle
-        run: gradle --version
-
-      - name: Completely wipe all Gradle caches and build directories
+      - name: Clean caches
         run: |
           rm -rf ~/.gradle/caches
           rm -rf ~/.gradle/daemon
-          rm -rf ~/.gradle/wrapper
           rm -rf build .gradle
-          rm -rf ~/.gradle/loom-cache
 
-      - name: Build with Gradle (no refresh dependencies)
+      - name: Build with Gradle Wrapper
         env:
           GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
-        run: gradle build --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=2
+        run: ./gradlew build --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=2
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
