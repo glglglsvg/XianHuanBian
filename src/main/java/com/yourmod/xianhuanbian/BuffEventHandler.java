@@ -1,112 +1,104 @@
 package com.yourmod.xianhuanbian;
 
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.entity.LivingEntity;
-import java.util.UUID;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
-public class BuffEventHandler {
-    private static final UUID[] ATTACK_UUIDS = new UUID[12];
-    static { for(int i=0;i<12;i++) ATTACK_UUIDS[i]=UUID.randomUUID(); }
+public class XianHuanBianMod implements ModInitializer {
+    public static final String MODID = "xianhuanbian";
+    public static final Identifier UNLOCK_FIRST = new Identifier(MODID, "unlock_first");
+    public static final Identifier TOGGLE_ALL = new Identifier(MODID, "toggle_all");
+    public static final Identifier SYNC_BUFFS = new Identifier(MODID, "sync_buffs");
+    public static final Identifier TOGGLE_PHASE = new Identifier(MODID, "toggle_phase");
 
-    private static double getBaseAttack(int id) {
-        return switch(id) {
-            case 1 -> 2;
-            case 2 -> 4;
-            case 3 -> 6;
-            case 4 -> 8;
-            case 5 -> 10;
-            case 6 -> 12;
-            case 7 -> 14;
-            case 8 -> 16;
-            case 9 -> 18;
-            default -> 0;
-        };
-    }
+    @Override
+    public void onInitialize() {
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            ToggleBuffCommand.register(dispatcher);
+        });
 
-    public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffData d) {
-        for (int i=1;i<=12;i++) if(d.isActive(i)) applySingleBuff(p,i,d);
-        if(d.isActive(11)) {
-            d.setPlayTicks(d.getPlayTicks()+1);
-            if(d.getPlayTicks() % (20*60*5) == 0) {
-                for (int i=1;i<=10;i++) if(d.isActive(i))
-                    d.setUpgradeLevel(i, d.getUpgradeLevel(i)+1);
-                p.sendMessage(net.minecraft.text.Text.literal("仙环之力随修行增长……"),false);
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                PlayerBuffData data = PlayerBuffData.get(player);
+                BuffEventHandler.applyActiveBuffs(player, data);
+                data.save(player);
+                if (player.age % 100 == 0) syncToClient(player, data);
+                processPhaseMovement(player, data);
             }
-        }
-    }
+        });
 
-    private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData d) {
-        int lv = d.getUpgradeLevel(id);
-        var attr = p.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
-        if(attr!=null && id <= 9) {
-            double base = getBaseAttack(id);
-            double total = base * Math.pow(2, lv);
-            var mod = new EntityAttributeModifier(ATTACK_UUIDS[id-1],"xh_attack_"+id, total, EntityAttributeModifier.Operation.ADDITION);
-            if(!attr.hasModifier(mod)) attr.addTemporaryModifier(mod);
-        }
-        switch(id) {
-            case 1: if(p.age%20==0) p.heal(1); break;
-            case 3: p.addStatusEffect(new StatusEffectInstance(StatusEffects.HASTE,40,0,false,false)); break;
-            case 5:
-                p.getAbilities().allowFlying = true;
-                p.sendAbilitiesUpdate();
-                break;
-            case 6: p.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY,40,0,false,false)); break;
-            case 8: p.getServerWorld().getEntitiesByClass(LivingEntity.class, p.getBoundingBox().expand(16), e->e!=p)
-                    .forEach(e->e.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING,40,0,false,false))); break;
-        }
-    }
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (!world.isClient && player instanceof ServerPlayerEntity sp) {
+                PlayerBuffData data = PlayerBuffData.get(sp);
+                BuffEventHandler.processActivity(sp, data, 0.002f);
+                data.save(sp);
+                syncToClient(sp, data);
+            }
+            return net.minecraft.util.ActionResult.PASS;
+        });
 
-    public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float inc) {
-        boolean all10 = true;
-        for(int i=0;i<10;i++) {
-            if(!d.isUnlocked(i+1)) {
-                all10=false;
-                d.increaseChance(i,inc);
-                if(p.getRandom().nextFloat() < d.getChance(i)) {
-                    d.setUnlocked(i+1,true);
-                    d.setActive(i+1,true);
-                    p.sendMessage(net.minecraft.text.Text.literal("领悟新环："+BuffNames.NAME[i+1]),false);
+        PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
+            if (!world.isClient && player instanceof ServerPlayerEntity sp) {
+                PlayerBuffData data = PlayerBuffData.get(sp);
+                BuffEventHandler.processActivity(sp, data, 0.001f);
+                data.save(sp);
+                syncToClient(sp, data);
+            }
+        });
+
+        ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+            if (source.getAttacker() instanceof ServerPlayerEntity sp) {
+                PlayerBuffData data = PlayerBuffData.get(sp);
+                BuffEventHandler.processActivity(sp, data, 0.003f);
+                BuffEventHandler.handleKillExperience(sp, data, entity);
+                data.save(sp);
+                syncToClient(sp, data);
+            }
+        });
+
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            PlayerBuffData data = PlayerBuffData.get(handler.player);
+            syncToClient(handler.player, data);
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(UNLOCK_FIRST, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> {
+                PlayerBuffData data = PlayerBuffData.get(player);
+                boolean hasAny = false;
+                for (int i = 1; i <= 10; i++) if (data.isUnlocked(i)) hasAny = true;
+                if (!hasAny) {
+                    int rand = player.getRandom().nextInt(10) + 1;
+                    data.setUnlocked(rand, true);
+                    data.setActive(rand, true);
+                    player.sendMessage(net.minecraft.text.Text.literal("你顿悟了" + BuffNames.NAME[rand] + "之力！"), false);
+                    data.save(player);
+                    syncToClient(player, data);
                 }
-            }
-        }
-        // 行为触发升级：第一次升级50%，之后每次1%
-        if (!all10) {
-            java.util.List<Integer> candidates = new java.util.ArrayList<>();
-            for (int i=1;i<=10;i++) if(d.isUnlocked(i)) candidates.add(i);
-            if (!candidates.isEmpty()) {
-                int id = candidates.get(p.getRandom().nextInt(candidates.size()));
-                float upgradeChance = d.hasBehaviorUpgraded(id) ? 0.01f : 0.5f;
-                if (p.getRandom().nextFloat() < upgradeChance) {
-                    d.setUpgradeLevel(id, d.getUpgradeLevel(id)+1);
-                    d.setBehaviorUpgraded(id);
-                    p.sendMessage(net.minecraft.text.Text.literal(BuffNames.NAME[id] + " 升阶！"), false);
-                }
-            }
-        }
-        if(all10 && !d.isUnlocked(11)) {
-            d.setUnlocked(11,true);
-            p.sendMessage(net.minecraft.text.Text.literal("仙环归一，拾壹·仙变已解锁！"),false);
-        }
-        if(all10 && d.isUnlocked(11) && !d.isUnlocked(12)) {
-            boolean allActive = true;
-            for(int i=1;i<=11;i++) if(!d.isActive(i)) allActive=false;
-            if(allActive) {
-                d.setUnlocked(12,true);
-                p.sendMessage(net.minecraft.text.Text.literal("不灭之环已降下！"),false);
-            }
-        }
-    }
+            });
+        });
 
-    public static void handleKillExperience(ServerPlayerEntity p, PlayerBuffData d, LivingEntity t) {
-        if(!d.isActive(10)) return;
-        float gained = t instanceof net.minecraft.entity.player.PlayerEntity ? 10f : 1f+p.getRandom().nextFloat()*2f;
-        d.setExpPool(d.getExpPool()+gained);
-        while(d.getExpPool() >= d.getNextThreshold()) {
-            d.setExpPool(d.getExpPool()-d.getNextThreshold());
-            d.setBonusAttack(d.getBonusAttack()+2);
-            d.setBo
+        ServerPlayNetworking.registerGlobalReceiver(TOGGLE_ALL, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> {
+                PlayerBuffData data = PlayerBuffData.get(player);
+                BuffEventHandler.toggleAllBuffs(player, data);
+                data.save(player);
+                syncToClient(player, data);
+            });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(TOGGLE_PHASE, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> {
+                PlayerBuffData data = PlayerBuffData.get(player);
+                data.setPhaseEnabled(!data.isPhaseEnabled());
+                player.sendMessage(net.minecraft.text.Tex
