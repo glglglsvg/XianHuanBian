@@ -9,7 +9,6 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -80,8 +79,7 @@ public class XianHuanBianMod implements ModInitializer {
                 for (int i = 1; i <= 10; i++) if (data.isUnlocked(i)) hasAny = true;
                 if (!hasAny) {
                     int rand = player.getRandom().nextInt(10) + 1;
-                    data.setUnlocked(rand, true);
-                    data.setActive(rand, true);
+                    data.setUnlocked(rand, true); data.setActive(rand, true);
                     player.sendMessage(net.minecraft.text.Text.literal("你顿悟了" + BuffNames.NAME[rand] + "之力！"), false);
                     data.save(player);
                     syncToClient(player, data);
@@ -102,7 +100,7 @@ public class XianHuanBianMod implements ModInitializer {
             server.execute(() -> {
                 PlayerBuffData data = PlayerBuffData.get(player);
                 data.setPhaseEnabled(!data.isPhaseEnabled());
-        player.sendMessage(net.minecraft.text.Text.literal("穿透模式：" + (data.isPhaseEnabled() ? "开启" : "关闭")), false);
+                player.sendMessage(net.minecraft.text.Text.literal("穿透模式：" +  (data.isPhaseEnabled() ? "开启" : "关闭")), false);
                 data.save(player);
             });
         });
@@ -114,36 +112,16 @@ public class XianHuanBianMod implements ModInitializer {
         ServerPlayNetworking.send(player, SYNC_BUFFS, buf);
     }
 
-    private static void processPhaseMovement(PlayerEntity player, PlayerBuffData data) {
+    private static void processPhaseMovement(ServerPlayerEntity player, PlayerBuffData data) {
         if (!data.isPhaseEnabled()) return;
-        boolean fullPhase = data.isActive(5) && player.getAbilities().flying;
-        float forward = player.input.movementForward;
-        float strafe = player.input.movementSideways;
-        boolean jump = player.input.jumping;
-        boolean sneak = player.input.sneaking;
-
-        if (forward == 0 && strafe == 0 && !jump && !sneak) return;
-
-        Vec3d look = Vec3d.fromPolar(player.getPitch(), player.getYaw());
-        Vec3d right = look.crossProduct(new Vec3d(0, 1, 0)).normalize();
-        Vec3d forwardVec = look.multiply(1, 0, 1).normalize();
-
-        Vec3d moveDir = forwardVec.multiply(forward).add(right.multiply(strafe));
-        if (fullPhase) {
-            if (jump) moveDir = moveDir.add(0, 1, 0);
-            if (sneak) moveDir = moveDir.add(0, -1, 0);
-        } else {
-            moveDir = new Vec3d(moveDir.x, 0, moveDir.z);
-        }
-
-        if (moveDir.lengthSquared() == 0) return;
-
+        Vec3d look = player.getRotationVector().normalize();
         double distance = 3.0;
-        moveDir = moveDir.normalize();
-        Vec3d targetPos = player.getPos().add(moveDir.multiply(distance));
+        if (!data.isActive(5) || !player.getAbilities().flying) {
+            look = new Vec3d(look.x, 0, look.z).normalize();
+        }
+        Vec3d targetPos = player.getPos().add(look.multiply(distance));
         BlockPos targetBlock = new BlockPos((int)targetPos.x, (int)targetPos.y, (int)targetPos.z);
         World world = player.getWorld();
-
         if (world.isAir(targetBlock) && world.isAir(targetBlock.up())) {
             player.teleport(targetPos.x, targetPos.y, targetPos.z);
         }
