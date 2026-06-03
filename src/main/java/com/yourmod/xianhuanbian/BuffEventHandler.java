@@ -12,7 +12,7 @@ public class BuffEventHandler {
     private static final UUID[] ATTACK_UUIDS = new UUID[12];
     static { for(int i=0;i<12;i++) ATTACK_UUIDS[i]=UUID.randomUUID(); }
 
-    public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffComponent d) {
+    public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffData d) {
         for (int i=1;i<=12;i++) if(d.isActive(i)) applySingleBuff(p,i,d);
         if(d.isActive(11)) {
             d.setPlayTicks(d.getPlayTicks()+1);
@@ -24,7 +24,7 @@ public class BuffEventHandler {
         }
     }
 
-    private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffComponent d) {
+    private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData d) {
         int lv = d.getUpgradeLevel(id);
         var attr = p.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
         if(attr!=null) {
@@ -43,7 +43,7 @@ public class BuffEventHandler {
         }
     }
 
-    public static void processActivity(ServerPlayerEntity p, PlayerBuffComponent d, float inc) {
+    public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float inc) {
         boolean all10 = true;
         for(int i=0;i<10;i++) {
             if(!d.isUnlocked(i+1)) {
@@ -70,7 +70,7 @@ public class BuffEventHandler {
         }
     }
 
-    public static void handleKillExperience(ServerPlayerEntity p, PlayerBuffComponent d, LivingEntity t) {
+    public static void handleKillExperience(ServerPlayerEntity p, PlayerBuffData d, LivingEntity t) {
         if(!d.isActive(10)) return;
         float gained = t instanceof net.minecraft.entity.player.PlayerEntity ? 10f : 1f+p.getRandom().nextFloat()*2f;
         d.setExpPool(d.getExpPool()+gained);
@@ -84,11 +84,11 @@ public class BuffEventHandler {
         }
     }
 
-    public static void toggleAllBuffs(ServerPlayerEntity p, PlayerBuffComponent d) {
+    public static void toggleAllBuffs(ServerPlayerEntity p, PlayerBuffData d) {
         boolean any = false;
         for(int i=1;i<=12;i++) if(d.isUnlocked(i)&&d.isActive(i)) any=true;
         boolean ns = !any;
         for(int i=1;i<=12;i++) if(d.isUnlocked(i)) d.setActive(i,ns);
         p.sendMessage(net.minecraft.text.Text.literal(ns?"所有仙环已开启":"所有仙环已关闭"),false);
     }
-    }
+}
