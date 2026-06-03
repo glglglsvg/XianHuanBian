@@ -29,7 +29,6 @@ group = 'com.yourmod.xianhuanbian'
 repositories {
     maven { url "https://mirrors.ustc.edu.cn/maven/repository/maven-public/" }
     maven { url "https://maven.fabricmc.net/" }
-    maven { url "https://maven.ladysnake.org/releases" }
     mavenCentral()
 }
 
@@ -38,8 +37,6 @@ dependencies {
     mappings "net.fabricmc:yarn:1.20.1+build.10:v2"
     modImplementation "net.fabricmc:fabric-loader:0.15.0"
     modImplementation "net.fabricmc.fabric-api:fabric-api:0.92.9+1.20.1"
-    modImplementation "dev.onyxstudios.cardinal-components-api:cardinal-components-base:5.2.3"
-    modImplementation "dev.onyxstudios.cardinal-components-api:cardinal-components-entity:5.2.3"
 }
 
 processResources {
