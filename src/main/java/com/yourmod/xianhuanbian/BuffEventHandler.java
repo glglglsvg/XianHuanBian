@@ -12,6 +12,21 @@ public class BuffEventHandler {
     private static final UUID[] ATTACK_UUIDS = new UUID[12];
     static { for(int i=0;i<12;i++) ATTACK_UUIDS[i]=UUID.randomUUID(); }
 
+    private static double getBaseAttack(int id) {
+        return switch(id) {
+            case 1 -> 2;
+            case 2 -> 4;
+            case 3 -> 6;
+            case 4 -> 8;
+            case 5 -> 10;
+            case 6 -> 12;
+            case 7 -> 14;
+            case 8 -> 16;
+            case 9 -> 18;
+            default -> 0;
+        };
+    }
+
     public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffData d) {
         for (int i=1;i<=12;i++) if(d.isActive(i)) applySingleBuff(p,i,d);
         if(d.isActive(11)) {
@@ -27,16 +42,19 @@ public class BuffEventHandler {
     private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData d) {
         int lv = d.getUpgradeLevel(id);
         var attr = p.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
-        if(attr!=null) {
-            double base = switch(id){case 1->2;case 2->4;case 3->6;case 4->8;case 5->10;case 6->12;case 7->14;case 8->16;case 9->18;default->0;};
-            var mod = new EntityAttributeModifier(ATTACK_UUIDS[id-1],"xh_attack_"+id, base+lv*2, EntityAttributeModifier.Operation.ADDITION);
+        if(attr!=null && id <= 9) {
+            double base = getBaseAttack(id);
+            double total = base * Math.pow(2, lv);
+            var mod = new EntityAttributeModifier(ATTACK_UUIDS[id-1],"xh_attack_"+id, total, EntityAttributeModifier.Operation.ADDITION);
             if(!attr.hasModifier(mod)) attr.addTemporaryModifier(mod);
         }
         switch(id) {
             case 1: if(p.age%20==0) p.heal(1); break;
             case 3: p.addStatusEffect(new StatusEffectInstance(StatusEffects.HASTE,40,0,false,false)); break;
-            case 5: p.addStatusEffect(new StatusEffectInstance(StatusEffects.LEVITATION,20,0,false,false));
-                    p.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING,40,0,false,false)); break;
+            case 5:
+                p.getAbilities().allowFlying = true;
+                p.sendAbilitiesUpdate();
+                break;
             case 6: p.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY,40,0,false,false)); break;
             case 8: p.getServerWorld().getEntitiesByClass(LivingEntity.class, p.getBoundingBox().expand(16), e->e!=p)
                     .forEach(e->e.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING,40,0,false,false))); break;
@@ -53,6 +71,20 @@ public class BuffEventHandler {
                     d.setUnlocked(i+1,true);
                     d.setActive(i+1,true);
                     p.sendMessage(net.minecraft.text.Text.literal("领悟新环："+BuffNames.NAME[i+1]),false);
+                }
+            }
+        }
+        // 行为触发升级：第一次升级50%，之后每次1%
+        if (!all10) {
+            java.util.List<Integer> candidates = new java.util.ArrayList<>();
+            for (int i=1;i<=10;i++) if(d.isUnlocked(i)) candidates.add(i);
+            if (!candidates.isEmpty()) {
+                int id = candidates.get(p.getRandom().nextInt(candidates.size()));
+                float upgradeChance = d.hasBehaviorUpgraded(id) ? 0.01f : 0.5f;
+                if (p.getRandom().nextFloat() < upgradeChance) {
+                    d.setUpgradeLevel(id, d.getUpgradeLevel(id)+1);
+                    d.setBehaviorUpgraded(id);
+                    p.sendMessage(net.minecraft.text.Text.literal(BuffNames.NAME[id] + " 升阶！"), false);
                 }
             }
         }
@@ -77,18 +109,4 @@ public class BuffEventHandler {
         while(d.getExpPool() >= d.getNextThreshold()) {
             d.setExpPool(d.getExpPool()-d.getNextThreshold());
             d.setBonusAttack(d.getBonusAttack()+2);
-            d.setBonusHealth(d.getBonusHealth()+2);
-            d.setNextThreshold(d.getNextThreshold()*5);
-            var hp = p.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
-            if(hp!=null) hp.setBaseValue(hp.getBaseValue()+2.0);
-        }
-    }
-
-    public static void toggleAllBuffs(ServerPlayerEntity p, PlayerBuffData d) {
-        boolean any = false;
-        for(int i=1;i<=12;i++) if(d.isUnlocked(i)&&d.isActive(i)) any=true;
-        boolean ns = !any;
-        for(int i=1;i<=12;i++) if(d.isUnlocked(i)) d.setActive(i,ns);
-        p.sendMessage(net.minecraft.text.Text.literal(ns?"所有仙环已开启":"所有仙环已关闭"),false);
-    }
-}
+            d.setBo
