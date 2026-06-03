@@ -101,4 +101,39 @@ public class XianHuanBianMod implements ModInitializer {
             server.execute(() -> {
                 PlayerBuffData data = PlayerBuffData.get(player);
                 data.setPhaseEnabled(!data.isPhaseEnabled());
-                player.sendMessage(net.minecraft.text.Tex
+                player.sendMessage(net.minecraft.text.Tex    private static void processPhaseMovement(ServerPlayerEntity player, PlayerBuffData data) {
+        if (!data.isPhaseEnabled()) return;
+        boolean fullPhase = data.isActive(5) && player.getAbilities().flying;
+        float forward = player.input.movementForward;
+        float strafe = player.input.movementSideways;
+        boolean jump = player.input.jumping;
+        boolean sneak = player.input.sneaking;
+
+        if (forward == 0 && strafe == 0 && !jump && !sneak) return;
+
+        Vec3d look = Vec3d.fromPolar(player.getPitch(), player.getYaw());
+        Vec3d right = look.crossProduct(new Vec3d(0, 1, 0)).normalize();
+        Vec3d forwardVec = look.multiply(1, 0, 1).normalize();
+
+        Vec3d moveDir = forwardVec.multiply(forward).add(right.multiply(strafe));
+        if (fullPhase) {
+            if (jump) moveDir = moveDir.add(0, 1, 0);
+            if (sneak) moveDir = moveDir.add(0, -1, 0);
+        } else {
+            moveDir = new Vec3d(moveDir.x, 0, moveDir.z);
+        }
+
+        if (moveDir.lengthSquared() == 0) return;
+
+        double distance = 3.0;
+        moveDir = moveDir.normalize();
+        Vec3d targetPos = player.getPos().add(moveDir.multiply(distance));
+        BlockPos targetBlock = new BlockPos((int)targetPos.x, (int)targetPos.y, (int)targetPos.z);
+        World world = player.getWorld();
+
+        if (world.isAir(targetBlock) && world.isAir(targetBlock.up())) {
+            player.teleport(targetPos.x, targetPos.y, targetPos.z);
+        }
+    }
+            }
+                
