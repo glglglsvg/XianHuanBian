@@ -109,4 +109,11 @@ public class BuffEventHandler {
             d.setExpPool(d.getExpPool()-d.getNextThreshold());
             d.setBonusAttack(d.getBonusAttack()+2);
             d.setBonusHealth(d.getBonusHealth()+2);
- 
+     public static void toggleAllBuffs(ServerPlayerEntity p, PlayerBuffData d) {
+        boolean any = false;
+        for(int i=1;i<=12;i++) if(d.isUnlocked(i)&&d.isActive(i)) any=true;
+        boolean ns = !any;
+        for(int i=1;i<=12;i++) if(d.isUnlocked(i)) d.setActive(i,ns);
+        p.sendMessage(net.minecraft.text.Text.literal(ns?"所有仙环已开启":"所有仙环已关闭"),false);
+    }
+        }
