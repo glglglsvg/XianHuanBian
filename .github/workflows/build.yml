@@ -22,13 +22,17 @@ jobs:
       - name: Verify Gradle
         run: gradle --version
 
-      - name: Clean caches
-        run: rm -rf ~/.gradle/caches/fabric-loom ~/.gradle/caches/modules-2 ~/.gradle/daemon
+      - name: Clean all caches
+        run: |
+          rm -rf ~/.gradle/caches/fabric-loom
+          rm -rf ~/.gradle/caches/modules-2
+          rm -rf ~/.gradle/daemon
+          rm -rf build .gradle
 
       - name: Build with Gradle
         env:
           GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
-        run: gradle build --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=2
+        run: gradle build --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=2 --refresh-dependencies
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
