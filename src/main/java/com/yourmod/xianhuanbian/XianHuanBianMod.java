@@ -101,7 +101,19 @@ public class XianHuanBianMod implements ModInitializer {
             server.execute(() -> {
                 PlayerBuffData data = PlayerBuffData.get(player);
                 data.setPhaseEnabled(!data.isPhaseEnabled());
-                player.sendMessage(net.minecraft.text.Tex    private static void processPhaseMovement(ServerPlayerEntity player, PlayerBuffData data) {
+                player.sendMessage(net.minecraft.text.Text.literal("穿透模式：" + (data.isPhaseEnabled() ? "开启" : "关闭")), false);
+                data.save(player);
+            });
+        });
+    }
+
+    private static void syncToClient(ServerPlayerEntity player, PlayerBuffData data) {
+        var buf = PacketByteBufs.create();
+        buf.writeNbt(data.toNbt());
+        ServerPlayNetworking.send(player, SYNC_BUFFS, buf);
+    }
+
+    private static void processPhaseMovement(ServerPlayerEntity player, PlayerBuffData data) {
         if (!data.isPhaseEnabled()) return;
         boolean fullPhase = data.isActive(5) && player.getAbilities().flying;
         float forward = player.input.movementForward;
@@ -135,5 +147,5 @@ public class XianHuanBianMod implements ModInitializer {
             player.teleport(targetPos.x, targetPos.y, targetPos.z);
         }
     }
-            }
-                
+}
+                                   
