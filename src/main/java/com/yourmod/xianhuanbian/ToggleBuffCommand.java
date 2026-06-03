@@ -14,13 +14,13 @@ public class ToggleBuffCommand {
             .executes(ctx -> {
                 int id = IntegerArgumentType.getInteger(ctx, "id");
                 ServerPlayerEntity p = ctx.getSource().getPlayerOrThrow();
-                PlayerBuffComponent data = ModComponents.BUFF_DATA.get(p);
+                PlayerBuffData data = PlayerBuffData.get(p);
                 if (!data.isUnlocked(id)) {
                     ctx.getSource().sendFeedback(() -> Text.literal("尚未领悟" + BuffNames.NAME[id]), false);
                     return 0;
                 }
                 data.setActive(id, !data.isActive(id));
-                ModComponents.BUFF_DATA.sync(p);
+                data.save(p);
                 ctx.getSource().sendFeedback(() -> Text.literal(BuffNames.NAME[id] + "已" + (data.isActive(id) ? "开启" : "关闭")), false);
                 return 1;
             }))
