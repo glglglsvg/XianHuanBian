@@ -31,10 +31,17 @@ public class XianHuanBianClient implements ClientModInitializer {
         key = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.xianhuanbian.toggle_all", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, "category.xianhuanbian"));
 
+        // 接收服务端同步的 BuffData
+        ClientPlayNetworking.registerGlobalReceiver(XianHuanBianMod.SYNC_BUFFS, (client, handler, buf, responseSender) -> {
+            var tag = buf.readNbt();
+            if (tag != null) {
+                PlayerBuffData.updateClientFromNbt(tag);
+            }
+        });
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if(client.player==null||client.world==null) return;
-            PlayerBuffComponent d = ModComponents.BUFF_DATA.get(client.player);
-            if(d == null) return;
+            PlayerBuffData d = PlayerBuffData.getClient();
             while(key.wasPressed()) ClientPlayNetworking.send(XianHuanBianMod.TOGGLE_ALL, PacketByteBufs.empty());
             for(int i=1;i<=12;i++) if(d.isActive(i)) ring(client, client.player, i, C[i]);
             if(client.options.attackKey.wasPressed()) {
