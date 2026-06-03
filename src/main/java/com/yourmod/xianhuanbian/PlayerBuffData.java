@@ -2,7 +2,6 @@ package com.yourmod.xianhuanbian;
 
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
-
 import java.util.*;
 
 public class PlayerBuffData {
@@ -21,9 +20,7 @@ public class PlayerBuffData {
     private float bonusHealth = 0;
     private boolean phaseEnabled = false;
 
-    public PlayerBuffData() {
-        Arrays.fill(chance, 0.01f);
-    }
+    public PlayerBuffData() { Arrays.fill(chance, 0.01f); }
 
     public boolean isUnlocked(int id) { return unlocked[id]; }
     public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
@@ -53,9 +50,7 @@ public class PlayerBuffData {
         return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> new PlayerBuffData());
     }
 
-    public void save(ServerPlayerEntity player) {
-        SERVER_DATA.put(player.getUuid(), this);
-    }
+    public void save(ServerPlayerEntity player) { SERVER_DATA.put(player.getUuid(), this); }
 
     public static PlayerBuffData getClient() { return CLIENT_CACHE; }
     public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
