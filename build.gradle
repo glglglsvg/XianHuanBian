@@ -1,41 +1,48 @@
-name: Build Mod
-on: [push, workflow_dispatch]
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+buildscript {
+    repositories {
+        maven { url "https://maven.fabricmc.net/" }
+        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
+        mavenCentral()
+    }
+    dependencies {
+        classpath "fabric-loom:fabric-loom.gradle.plugin:1.5.5"
+    }
+}
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: 17
-          distribution: temurin
+apply plugin: "fabric-loom"
+apply plugin: "maven-publish"
 
-      - name: Download and install Gradle 8.7
-        run: |
-          wget -q https://mirrors.huaweicloud.com/gradle/gradle-8.7-bin.zip
-          unzip -q gradle-8.7-bin.zip
-          echo "$(pwd)/gradle-8.7/bin" >> $GITHUB_PATH
+loom {
+    mixin {
+        defaultRefmapName = "xianhuanbian.refmap.json"
+    }
+}
 
-      - name: Verify Gradle
-        run: gradle --version
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(17) }
+}
 
-      - name: Clean all caches (force)
-        run: |
-          rm -rf ~/.gradle/caches/fabric-loom
-          rm -rf ~/.gradle/caches/modules-2
-          rm -rf ~/.gradle/daemon
-          rm -rf build .gradle
+base.archivesName = 'XianHuanBian'
+version = '1.0.0'
+group = 'com.yourmod.xianhuanbian'
 
-      - name: Build with Gradle
-        env:
-          GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
-        run: gradle build --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=2 --refresh-dependencies
+repositories {
+    maven { url "https://mirrors.ustc.edu.cn/maven/repository/maven-public/" }
+    maven { url "https://maven.fabricmc.net/" }
+    maven { url "https://maven.ladysnake.org/releases" }
+    mavenCentral()
+}
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: XianHuanBian
-          path: build/libs/*.jar
+dependencies {
+    minecraft "com.mojang:minecraft:1.20.1"
+    mappings "net.fabricmc:yarn:1.20.1+build.10:v2"
+    modImplementation "net.fabricmc:fabric-loader:0.15.0"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.92.9+1.20.1"
+    modImplementation "dev.onyxstudios.cardinal-components-api:cardinal-components-base:5.2.3"
+    modImplementation "dev.onyxstudios.cardinal-components-api:cardinal-components-entity:5.2.3"
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") { expand "version": project.version }
+}
