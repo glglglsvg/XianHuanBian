@@ -25,25 +25,26 @@ public class XianHuanBianClient implements ClientModInitializer {
     private static int lc = 0;
     private static long lt = 0;
     private static KeyBinding key;
+    private static KeyBinding phaseKey;
 
     @Override
     public void onInitializeClient() {
         key = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.xianhuanbian.toggle_all", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, "category.xianhuanbian"));
+        phaseKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.xianhuanbian.toggle_phase", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_X, "category.xianhuanbian"));
 
-        // 接收服务端同步的 BuffData
         ClientPlayNetworking.registerGlobalReceiver(XianHuanBianMod.SYNC_BUFFS, (client, handler, buf, responseSender) -> {
             var tag = buf.readNbt();
-            if (tag != null) {
-                PlayerBuffData.updateClientFromNbt(tag);
-            }
+            if (tag != null) PlayerBuffData.updateClientFromNbt(tag);
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if(client.player==null||client.world==null) return;
             PlayerBuffData d = PlayerBuffData.getClient();
             while(key.wasPressed()) ClientPlayNetworking.send(XianHuanBianMod.TOGGLE_ALL, PacketByteBufs.empty());
-            for(int i=1;i<=12;i++) if(d.isActive(i)) ring(client, client.player, i, C[i]);
+            while(phaseKey.wasPressed()) ClientPlayNetworking.send(XianHuanBianMod.TOGGLE_PHASE, PacketByteBufs.empty());
+            for(int i=1;i<=12;i++) if(d.isActive(i)) spawnRing(client, client.player, i, C[i]);
             if(client.options.attackKey.wasPressed()) {
                 long now = System.currentTimeMillis();
                 if(now-lt>2000) lc=0;
@@ -60,12 +61,20 @@ public class XianHuanBianClient implements ClientModInitializer {
         });
     }
 
-    private void ring(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
+    private void spawnRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
         double y = pl.getY()+1.0, rad = R+(id-1)*S;
-        var eff = new DustParticleEffect(col, 1.0f);
+        var effect = new DustParticleEffect(col, 0.5f);
         for(int j=0;j<P;j++) {
             double a = (2*Math.PI/P)*j + (pl.age*0.1);
-            cl.world.addParticle(eff, pl.getX()+rad*Math.cos(a), y, pl.getZ()+rad*Math.sin(a),0,0,0);
+            cl.world.addParticle(effect, pl.getX()+rad*Math.cos(a), y, pl.getZ()+rad*Math.sin(a),0,0,0);
+        }
+        var whiteEffect = new DustParticleEffect(new Vector3f(1,1,1), 0.3f);
+        for(int j=0;j<P;j++) {
+            double a = (2*Math.PI/P)*j + (pl.age*0.1);
+            double x = pl.getX()+rad*Math.cos(a);
+            double z = pl.getZ()+rad*Math.sin(a);
+            cl.world.addParticle(whiteEffect, x+0.05, y+0.02, z+0.05,0,0,0);
+            cl.world.addParticle(whiteEffect, x-0.05, y-0.02, z-0.05,0,0,0);
         }
     }
 }
