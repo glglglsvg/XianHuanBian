@@ -1,16 +1,7 @@
-buildscript {
-    repositories {
-        maven { url "https://maven.fabricmc.net/" }
-        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
-        mavenCentral()
-    }
-    dependencies {
-        classpath "fabric-loom:fabric-loom.gradle.plugin:1.9.2"
-    }
+plugins {
+    id 'fabric-loom' version '1.9.2'
+    id 'maven-publish'
 }
-
-apply plugin: "fabric-loom"
-apply plugin: "maven-publish"
 
 loom {
     mixin {
