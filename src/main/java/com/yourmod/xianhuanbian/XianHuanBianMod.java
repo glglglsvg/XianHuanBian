@@ -75,7 +75,8 @@ public void onInitialize() {
     });
 
     ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-        if (source.getAttacker() instanceof ServerPlayerEntity sp && entity instanceof LivingEntity target) {
+        if (source.getAttacker() instanceof ServerPlayerEntity sp) {
+            LivingEntity target = entity;
             PlayerBuffData data = PlayerBuffData.get(sp);
             if (!hasAnyRing(data)) {
                 unlockFirstRing(sp, data);
@@ -136,8 +137,7 @@ public void onInitialize() {
             });
         });
     }
-}      
-    private static boolean hasAnyRing(PlayerBuffData data) {
+}    private static boolean hasAnyRing(PlayerBuffData data) {
         for (int i = 1; i <= 10; i++) if (data.isUnlocked(i)) return true;
         return false;
     }
