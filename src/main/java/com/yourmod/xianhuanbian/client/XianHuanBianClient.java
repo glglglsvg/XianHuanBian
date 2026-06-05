@@ -104,9 +104,7 @@ public void onInitializeClient() {
         }
         client.player.sendMessage(Text.literal(hud.toString()), true);
     });
-}   
-    private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
-     
+}    private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
         double y = pl.getY() + 1.0, rad = 0.5 + (id - 1) * 0.08;
         var effect = new DustParticleEffect(col, 0.2f);
         for (int j = 0; j < 6; j++) {
