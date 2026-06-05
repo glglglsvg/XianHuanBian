@@ -11,160 +11,152 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
+import java.util.*;
 
 public class XianHuanBianMod implements ModInitializer {
     public static final String MODID = "xianhuanbian";
     public static final Identifier UNLOCK_FIRST = new Identifier(MODID, "unlock_first");
-    public static final Identifier TOGGLE_ALL = new Identifier(MODID, "toggle_all");
     public static final Identifier SYNC_BUFFS = new Identifier(MODID, "sync_buffs");
-    public static final Identifier TOGGLE_PHASE = new Identifier(MODID, "toggle_phase");
     public static final Identifier REFILL_ENERGY = new Identifier(MODID, "refill_energy");
 
-    @Override
-    public void onInitialize() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-            ToggleBuffCommand.register(dispatcher);
-        });
+    private static final Set<Block> ORE_BLOCKS = new HashSet<>(Arrays.asList(
+        Blocks.COAL_ORE, Blocks.DEEPSLATE_COAL_ORE,
+        Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE,
+        Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE,
+        Blocks.GOLD_ORE, Blocks.DEEPSLATE_GOLD_ORE,
+        Blocks.REDSTONE_ORE, Blocks.DEEPSLATE_REDSTONE_ORE,
+        Blocks.LAPIS_ORE, Blocks.DEEPSLATE_LAPIS_ORE,
+        Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE,
+        Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE,
+        Blocks.NETHER_QUARTZ_ORE,
+        Blocks.NETHER_GOLD_ORE,
+        Blocks.ANCIENT_DEBRIS
+    ));@Override
+public void onInitialize() {
+    CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+        ToggleBuffCommand.register(dispatcher);
+        BuffEventHandler.registerCommands(dispatcher);
+    });
 
-        ServerTickEvents.END_SERVER_TICK.register(server -> {
-            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                PlayerBuffData data = PlayerBuffData.get(player);
-                BuffEventHandler.applyActiveBuffs(player, data);
-                data.save(player);
-                if (player.age % 100 == 0) syncToClient(player, data);
-                processPhaseMovement(player, data);
+    ServerTickEvents.END_SERVER_TICK.register(server -> {
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            PlayerBuffData data = PlayerBuffData.get(player);
+            BuffEventHandler.applyActiveBuffs(player, data);
+            data.save(player);
+            if (player.age % 100 == 0) syncToClient(player, data);
+        }
+    });
+
+    AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+        if (!world.isClient && player instanceof ServerPlayerEntity sp && entity instanceof LivingEntity target) {
+            PlayerBuffData data = PlayerBuffData.get(sp);
+            BuffEventHandler.onAttackEntity(sp, data, target);
+            if (!hasAnyRing(data)) unlockFirstRing(sp, data);
+            data.save(sp);
+            syncToClient(sp, data);
+        }
+        return net.minecraft.util.ActionResult.PASS;
+    });
+
+    PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
+        if (!world.isClient && player instanceof ServerPlayerEntity sp) {
+            PlayerBuffData data = PlayerBuffData.get(sp);
+            if (!hasAnyRing(data)) {
+                unlockFirstRing(sp, data);
+            } else if (ORE_BLOCKS.contains(state.getBlock())) {
+                BuffEventHandler.processActivity(sp, data, 0.00001f, 10);
             }
-        });
+            data.save(sp);
+            syncToClient(sp, data);
+        }
+    });
 
-        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-            if (!world.isClient && player instanceof ServerPlayerEntity sp) {
-                PlayerBuffData data = PlayerBuffData.get(sp);
-                BuffEventHandler.processActivity(sp, data, 0.0001f, 10);
-                data.save(sp);
-                syncToClient(sp, data);
+    ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+        if (source.getAttacker() instanceof ServerPlayerEntity sp && entity instanceof LivingEntity target) {
+            PlayerBuffData data = PlayerBuffData.get(sp);
+            if (!hasAnyRing(data)) {
+                unlockFirstRing(sp, data);
+            } else {
+                BuffEventHandler.onKillEntity(sp, data, target);
+                BuffEventHandler.processActivity(sp, data, 0.00004f, 30);
             }
-            return net.minecraft.util.ActionResult.PASS;
-        });
+            data.save(sp);
+            syncToClient(sp, data);
+        }
+    });
 
-        PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
-            if (!world.isClient && player instanceof ServerPlayerEntity sp) {
-                PlayerBuffData data = PlayerBuffData.get(sp);
-                BuffEventHandler.processActivity(sp, data, 0.00005f, 5);
-                data.save(sp);
-                syncToClient(sp, data);
-            }
-        });
+    ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+        PlayerBuffData data = PlayerBuffData.get(handler.player);
+        syncToClient(handler.player, data);
+    });
 
-        ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-            if (source.getAttacker() instanceof ServerPlayerEntity sp) {
-                PlayerBuffData data = PlayerBuffData.get(sp);
-                BuffEventHandler.processActivity(sp, data, 0.0002f, 20);
-                BuffEventHandler.handleKillExperience(sp, data, entity);
-                data.save(sp);
-                syncToClient(sp, data);
-            }
-        });
-
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            PlayerBuffData data = PlayerBuffData.get(handler.player);
-            syncToClient(handler.player, data);
-        });
-
-        // 全局开关
-        ServerPlayNetworking.registerGlobalReceiver(TOGGLE_ALL, (server, player, handler, buf, responseSender) -> {
-            server.execute(() -> {
-                PlayerBuffData data = PlayerBuffData.get(player);
-                BuffEventHandler.toggleAllBuffs(player, data);
+    ServerPlayNetworking.registerGlobalReceiver(UNLOCK_FIRST, (server, player, handler, buf, responseSender) -> {
+        server.execute(() -> {
+            PlayerBuffData data = PlayerBuffData.get(player);
+            if (!hasAnyRing(data)) {
+                unlockFirstRing(player, data);
                 data.save(player);
                 syncToClient(player, data);
-            });
+            }
         });
+    });
 
-        // 穿透开关
-        ServerPlayNetworking.registerGlobalReceiver(TOGGLE_PHASE, (server, player, handler, buf, responseSender) -> {
+    ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
+        server.execute(() -> {
+            PlayerBuffData data = PlayerBuffData.get(player);
+            data.addEnergy(30);
+            player.sendMessage(net.minecraft.text.Text.literal("你凝神聚气，恢复了30点能量"), true);
+            data.save(player);
+        });
+    });
+
+    for (int i = 1; i <= 10; i++) {
+        final int id = i;
+        Identifier toggleId = new Identifier(MODID, "toggle_" + id);
+        ServerPlayNetworking.registerGlobalReceiver(toggleId, (server, player, handler, buf, responseSender) -> {
             server.execute(() -> {
                 PlayerBuffData data = PlayerBuffData.get(player);
-                data.setPhaseEnabled(!data.isPhaseEnabled());
-                player.sendMessage(net.minecraft.text.Text.literal("穿透模式：" + (data.isPhaseEnabled() ? "开启" : "关闭")), false);
-                data.save(player);
-            });
-        });
-
-        // 回气
-        ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
-            server.execute(() -> {
-                PlayerBuffData data = PlayerBuffData.get(player);
-                data.addEnergy(30);
-                player.sendMessage(net.minecraft.text.Text.literal("你凝神聚气，恢复了30点能量"), true);
-                data.save(player);
-            });
-        });
-
-        // 初次觉醒
-        ServerPlayNetworking.registerGlobalReceiver(UNLOCK_FIRST, (server, player, handler, buf, responseSender) -> {
-            server.execute(() -> {
-                PlayerBuffData data = PlayerBuffData.get(player);
-                boolean hasAny = false;
-                for (int i = 1; i <= 10; i++) if (data.isUnlocked(i)) hasAny = true;
-                if (!hasAny) {
-                    int rand = player.getRandom().nextInt(10) + 1;
-                    data.setUnlocked(rand, true);
-                    data.setActive(rand, true);
-                    player.sendMessage(net.minecraft.text.Text.literal("你顿悟了" + BuffNames.NAME[rand] + "之力！"), false);
-                    data.save(player);
-                    syncToClient(player, data);
+                if (!data.isUnlocked(id)) {
+                    player.sendMessage(net.minecraft.text.Text.literal("尚未领悟" + BuffNames.NAME[id]), false);
+                    return;
                 }
+                boolean newActive = !data.isActive(id);
+                if (newActive && data.getEnergy() < 10) {
+                    player.sendMessage(net.minecraft.text.Text.literal("气不足，无法开启"), false);
+                    return;
+                }
+                if (newActive) data.addEnergy(-10);
+                data.setActive(id, newActive);
+                data.save(player);
+                syncToClient(player, data);
+                player.sendMessage(net.minecraft.text.Text.literal(BuffNames.NAME[id] + "已" + (newActive ? "开启" : "关闭")), false);
             });
         });
+    }
+}      
+    private static boolean hasAnyRing(PlayerBuffData data) {
+        for (int i = 1; i <= 10; i++) if (data.isUnlocked(i)) return true;
+        return false;
+    }
 
-        // 十个独立开关
-        for (int i = 1; i <= 10; i++) {
-            final int id = i;
-            Identifier toggleId = new Identifier(MODID, "toggle_" + id);
-            ServerPlayNetworking.registerGlobalReceiver(toggleId, (server, player, handler, buf, responseSender) -> {
-                server.execute(() -> {
-                    PlayerBuffData data = PlayerBuffData.get(player);
-                    if (!data.isUnlocked(id)) {
-                        player.sendMessage(net.minecraft.text.Text.literal("尚未领悟" + BuffNames.NAME[id]), false);
-                        return;
-                    }
-                    boolean newActive = !data.isActive(id);
-                    if (newActive) {
-                        if (data.getEnergy() < 10) {
-                            player.sendMessage(net.minecraft.text.Text.literal("气不足，无法开启"), false);
-                            return;
-                        }
-                        data.addEnergy(-10);
-                    }
-                    data.setActive(id, newActive);
-                    data.save(player);
-                    syncToClient(player, data);
-                    player.sendMessage(net.minecraft.text.Text.literal(BuffNames.NAME[id] + "已" + (newActive ? "开启" : "关闭")), false);
-                });
-            });
+    private static void unlockFirstRing(ServerPlayerEntity player, PlayerBuffData data) {
+        int rand = player.getRandom().nextInt(10) + 1;
+        data.setUnlocked(rand, true);
+        data.setActive(rand, true);
+        data.setGlobalAttack(3);
+        if (rand == 1) {
+            data.setMaxHealthBonus(5);
+            BuffEventHandler.applyHealth(player, data);
         }
-    }    private static void syncToClient(ServerPlayerEntity player, PlayerBuffData data) {
+        player.sendMessage(net.minecraft.text.Text.literal("你顿悟了" + BuffNames.NAME[rand] + "之力！"), false);
+    }
+
+    private static void syncToClient(ServerPlayerEntity player, PlayerBuffData data) {
         var buf = PacketByteBufs.create();
         buf.writeNbt(data.toNbt());
         ServerPlayNetworking.send(player, SYNC_BUFFS, buf);
-    }
-
-    private static void processPhaseMovement(ServerPlayerEntity player, PlayerBuffData data) {
-        if (!data.isPhaseEnabled() || data.getEnergy() < 5) return;
-        Vec3d look = player.getRotationVector().normalize();
-        double distance = 3.0;
-        if (!data.isActive(5) || !player.getAbilities().flying) {
-            look = new Vec3d(look.x, 0, look.z).normalize();
-        }
-        Vec3d targetPos = player.getPos().add(look.multiply(distance));
-        BlockPos targetBlock = new BlockPos((int) targetPos.x, (int) targetPos.y, (int) targetPos.z);
-        World world = player.getWorld();
-        if (world.isAir(targetBlock) && world.isAir(targetBlock.up())) {
-            player.teleport(targetPos.x, targetPos.y, targetPos.z);
-            data.addEnergy(-5);
-        }
     }
 }
