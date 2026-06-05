@@ -50,6 +50,7 @@ public long getUpgradeCost(int id) { return upgradeCost[id]; }
 public void setUpgradeCost(int id, long cost) { upgradeCost[id] = cost; }
 public long getCultivation() { return cultivation; }
 public void addCultivation(long amt) { cultivation += amt; }
+public void setCultivation(long v) { cultivation = v; }
 public int getEnergy() { return energy; }
 public void setEnergy(int v) { energy = Math.max(0, Math.min(maxEnergy, v)); }
 public void addEnergy(int v) { setEnergy(energy + v); }
