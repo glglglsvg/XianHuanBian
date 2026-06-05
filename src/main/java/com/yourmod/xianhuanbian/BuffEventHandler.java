@@ -40,7 +40,6 @@ public class BuffEventHandler {
 
         for (int i = 1; i <= 12; i++) {
             if (!d.isActive(i)) continue;
-            // 时间限制处理
             if (i == 2 || i == 3 || i == 4 || i == 5 || i == 6 || i == 7 || i == 9) {
                 int dur = d.getDuration(i);
                 if (dur > 0) {
@@ -60,7 +59,6 @@ public class BuffEventHandler {
             applySingleBuff(p, i, d);
         }
 
-        // 第八环武器
         if (d.isActive(8)) {
             int cd = d.getDuration(8);
             if (cd <= 0) {
@@ -71,7 +69,6 @@ public class BuffEventHandler {
             }
         }
 
-        // 第十一环自动升级
         if (d.isActive(11)) {
             d.setPlayTicks(d.getPlayTicks() + 1);
             if (d.getPlayTicks() % (20 * 60 * 5) == 0) {
@@ -127,9 +124,10 @@ public static void onAttackEntity(ServerPlayerEntity p, PlayerBuffData d, Living
         );
         target.addStatusEffect(effects.get(new Random().nextInt(effects.size())));
         if (Math.random() < 0.1) {
-            target.getWorld().addWeatherEffect(new net.minecraft.entity.LightningEntity(net.minecraft.entity.EntityType.LIGHTNING_BOLT, target.getWorld()) {
-                @Override public void tick() { super.tick(); if (this.age > 5) this.remove(RemovalReason.DISCARDED); }
-            });
+            net.minecraft.entity.LightningEntity lightning = new net.minecraft.entity.LightningEntity(
+                net.minecraft.entity.EntityType.LIGHTNING_BOLT, target.getWorld());
+            lightning.setPosition(target.getPos());
+            target.getWorld().spawnEntity(lightning);
         }
     }
 }
@@ -226,11 +224,11 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
 
     List<Enchantment> attackEnchants = Arrays.asList(
         Enchantments.SHARPNESS, Enchantments.KNOCKBACK, Enchantments.FIRE_ASPECT,
-        Enchantments.LOOTING, Enchantments.SWEEPING_EDGE
+        Enchantments.LOOTING, Enchantments.SWEEPING
     );
     Enchantment enchant = attackEnchants.get(new Random().nextInt(attackEnchants.size()));
     int level = d.getLevel(8);
-    if (enchant == Enchantments.SWEEPING_EDGE && !(chosen instanceof SwordItem)) {
+    if (enchant == Enchantments.SWEEPING && !(chosen instanceof SwordItem)) {
         enchant = Enchantments.SHARPNESS;
     }
     weaponStack.addEnchantment(enchant, Math.min(level, 10));
