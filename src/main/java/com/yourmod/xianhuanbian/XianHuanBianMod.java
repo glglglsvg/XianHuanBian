@@ -34,7 +34,8 @@ public class XianHuanBianMod implements ModInitializer {
         Blocks.NETHER_QUARTZ_ORE,
         Blocks.NETHER_GOLD_ORE,
         Blocks.ANCIENT_DEBRIS
-    ));@Override
+    ));
+    @Override
 public void onInitialize() {
     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
         ToggleBuffCommand.register(dispatcher);
@@ -129,7 +130,13 @@ public void onInitialize() {
                     player.sendMessage(net.minecraft.text.Text.literal("气不足，无法开启"), false);
                     return;
                 }
-                if (newActive) data.addEnergy(-10);
+                if (newActive) {
+                    data.addEnergy(-10);
+                    // 第八环开启时给武器
+                    if (id == 8) {
+                        BuffEventHandler.giveWeaponOnActivate(player, data);
+                    }
+                }
                 data.setActive(id, newActive);
                 data.save(player);
                 syncToClient(player, data);
@@ -137,7 +144,8 @@ public void onInitialize() {
             });
         });
     }
-}    private static boolean hasAnyRing(PlayerBuffData data) {
+}
+    private static boolean hasAnyRing(PlayerBuffData data) {
         for (int i = 1; i <= 10; i++) if (data.isUnlocked(i)) return true;
         return false;
     }
