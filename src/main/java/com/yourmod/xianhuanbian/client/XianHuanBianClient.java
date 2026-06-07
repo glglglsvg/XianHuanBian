@@ -41,7 +41,8 @@ public class XianHuanBianClient implements ClientModInitializer {
         GLFW.GLFW_KEY_J, GLFW.GLFW_KEY_K, GLFW.GLFW_KEY_L,
         GLFW.GLFW_KEY_H, GLFW.GLFW_KEY_N, GLFW.GLFW_KEY_M,
         GLFW.GLFW_KEY_P
-    };@Override
+    };
+    @Override
 public void onInitializeClient() {
     refillKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
         "key.xianhuanbian.refill_energy", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "category.xianhuanbian"));
@@ -61,7 +62,8 @@ public void onInitializeClient() {
     ClientPlayNetworking.registerGlobalReceiver(XianHuanBianMod.SYNC_BUFFS, (client, handler, buf, responseSender) -> {
         var tag = buf.readNbt();
         if (tag != null) PlayerBuffData.updateClientFromNbt(tag);
-    });    ClientTickEvents.END_CLIENT_TICK.register(client -> {
+    });
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
         if (client.player == null || client.world == null) return;
         PlayerBuffData d = PlayerBuffData.getClient();
 
@@ -104,7 +106,8 @@ public void onInitializeClient() {
         }
         client.player.sendMessage(Text.literal(hud.toString()), true);
     });
-}    private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
+}
+        private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
         double y = pl.getY() + 1.0, rad = 0.5 + (id - 1) * 0.08;
         var effect = new DustParticleEffect(col, 0.2f);
         for (int j = 0; j < 6; j++) {
