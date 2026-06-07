@@ -29,7 +29,7 @@ public class BuffEventHandler {
     public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffData d) {
         float cost = d.getEnergyCostPerTick();
 
-        // 每tick重置能力状态，避免残留（修复右键问题）
+        // 每tick重置能力状态
         PlayerEntity player = (PlayerEntity) p;
         player.getAbilities().allowFlying = false;
         player.getAbilities().flying = false;
@@ -47,11 +47,17 @@ public class BuffEventHandler {
                 attr.addPersistentModifier(mod);
                 p.setHealth(Math.min(p.getHealth(), p.getMaxHealth()));
             }
+            // 生命回复（激活时生效）
+            if (d.isActive(1) && p.age % 20 == 0) {
+                int regen = d.getRegenLevel();
+                if (regen > 0) {
+                    p.heal(regen);
+                }
+            }
         }
 
         for (int i = 1; i <= 12; i++) {
             if (!d.isActive(i)) continue;
-            // 时间限制处理
             if (i == 2 || i == 3 || i == 4 || i == 5 || i == 6 || i == 7 || i == 9) {
                 int dur = d.getDuration(i);
                 if (dur > 0) {
@@ -71,7 +77,7 @@ public class BuffEventHandler {
             applySingleBuff(p, i, d);
         }
 
-        // 第八环武器定时给予（30秒）
+        // 第八环武器
         if (d.isActive(8)) {
             int cd = d.getDuration(8);
             if (cd <= 0) {
@@ -118,19 +124,25 @@ public class BuffEventHandler {
     }
 }
 
-// 攻击实体附加效果（第三环必定暴击）
-public static void onAttackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
+// 攻击实体附加效果（第十环生命汲取）
+public static void onAttackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target, double damageDealt) {
+    // 第十环生命汲取：造成伤害的20%回复
+    if (d.isActive(10) && damageDealt > 0) {
+        p.heal((float) (damageDealt * 0.2));
+    }
+}
+
+// 原有攻击方法（修改为返回伤害值以便汲取使用）
+public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
+    double totalDamage = 0;
     // 第三环必定暴击
     if (d.isActive(3)) {
         int lv = d.getLevel(3);
-        double critMultiplier = 2.0 + (lv - 1) * 0.5; // 1级2倍，每级+0.5倍
-        if (!p.isOnGround()) {
-            critMultiplier += 0.5; // 跳跃额外加0.5倍
-        }
-        // 必定暴击伤害
-        target.damage(p.getDamageSources().mobAttack(p), (float) (critMultiplier * d.getGlobalAttack()));
+        double critMultiplier = 2.0 + (lv - 1) * 0.5;
+        if (!p.isOnGround()) critMultiplier += 0.5;
+        totalDamage = critMultiplier * d.getGlobalAttack();
+        target.damage(p.getDamageSources().mobAttack(p), (float) totalDamage);
     }
-
     // 第五环空气屏障
     if (d.isActive(5)) {
         BlockPos pos = target.getBlockPos();
@@ -139,13 +151,12 @@ public static void onAttackEntity(ServerPlayerEntity p, PlayerBuffData d, Living
         target.teleport(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
         p.getServer().execute(() -> world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState()));
     }
-
     // 第六环伤害倍率
     if (d.isActive(6)) {
         float mul = 2.0f + (d.getLevel(6) - 1) * 0.8f;
+        totalDamage += mul * d.getGlobalAttack();
         target.damage(p.getDamageSources().mobAttack(p), mul * (float) d.getGlobalAttack());
     }
-
     // 第九环负面效果
     if (d.isActive(9)) {
         int dur = d.getDuration(9) == 0 ? (d.getLevel(9) < 10 ? 10 * 20 : 600 * 20) : d.getDuration(9);
@@ -163,11 +174,12 @@ public static void onAttackEntity(ServerPlayerEntity p, PlayerBuffData d, Living
             target.getWorld().spawnEntity(lightning);
         }
     }
+    return totalDamage;
 }
 
 public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     if (d.isActive(10)) {
-        p.heal(d.getKillHealAmount());
+        p.heal(d.getKillHealAmount()); // 原有击杀回血
         double mul = d.getKillMultiplier();
         d.addCultivation((long) (20 * mul));
     }
@@ -204,8 +216,15 @@ private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
     d.setUnlocked(id, true);
     d.setActive(id, true);
     d.setLevel(id, 1);
-    if (id == 1) { d.setMaxHealthBonus(5); applyHealth(p, d); }
-    if (id == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
+    if (id == 1) {
+        d.setMaxHealthBonus(5);
+        d.setRegenLevel(1); // 一级回复1点
+        applyHealth(p, d);
+    }
+    if (id == 10) {
+        d.setKillHealAmount(5);
+        d.setKillMultiplier(0.5);
+    }
     if (id == 5) d.setDuration(id, 60 * 20);
     double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
     d.setGlobalAttack(newAttack);
@@ -216,11 +235,14 @@ private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
 private static void upgradeBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
     d.setCultivation(d.getCultivation() - d.getUpgradeCost(id));
     d.setLevel(id, d.getLevel(id) + 1);
-    // 下一级成本：200^新等级（确保只有1升2为200）
     d.setUpgradeCost(id, (long) Math.pow(200, d.getLevel(id)));
     double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
     d.setGlobalAttack(newAttack);
-    if (id == 1) { d.setMaxHealthBonus(d.getMaxHealthBonus() + 5); applyHealth(p, d); }
+    if (id == 1) {
+        d.setMaxHealthBonus(d.getMaxHealthBonus() + 5);
+        d.setRegenLevel(d.getLevel(id)); // 回复等级随环等级
+        applyHealth(p, d);
+    }
     if (id == 10) {
         d.setKillHealAmount(d.getKillHealAmount() + 5);
         d.setKillMultiplier(Math.min(5.0, d.getKillMultiplier() + 0.5));
@@ -286,7 +308,6 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
     }
 }
 
-// 主动开启第八环时调用的武器给予
 public static void giveWeaponOnActivate(ServerPlayerEntity p, PlayerBuffData d) {
     giveRandomWeapon(p, d);
 }
