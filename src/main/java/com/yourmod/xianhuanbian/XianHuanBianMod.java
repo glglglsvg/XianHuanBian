@@ -52,15 +52,16 @@ public void onInitialize() {
     });
 
     AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-        if (!world.isClient && player instanceof ServerPlayerEntity sp && entity instanceof LivingEntity target) {
-            PlayerBuffData data = PlayerBuffData.get(sp);
-            BuffEventHandler.onAttackEntity(sp, data, target);
-            if (!hasAnyRing(data)) unlockFirstRing(sp, data);
-            data.save(sp);
-            syncToClient(sp, data);
-        }
-        return net.minecraft.util.ActionResult.PASS;
-    });
+    if (!world.isClient && player instanceof ServerPlayerEntity sp && entity instanceof LivingEntity target) {
+        PlayerBuffData data = PlayerBuffData.get(sp);
+        double dmg = BuffEventHandler.attackEntity(sp, data, target);  // 使用新方法
+        BuffEventHandler.onAttackEntity(sp, data, target, dmg);        // 传递伤害
+        if (!hasAnyRing(data)) unlockFirstRing(sp, data);
+        data.save(sp);
+        syncToClient(sp, data);
+    }
+    return net.minecraft.util.ActionResult.PASS;
+});
 
     PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
         if (!world.isClient && player instanceof ServerPlayerEntity sp) {
