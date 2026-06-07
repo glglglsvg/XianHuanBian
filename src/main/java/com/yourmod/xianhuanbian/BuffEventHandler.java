@@ -216,7 +216,8 @@ private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
 private static void upgradeBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
     d.setCultivation(d.getCultivation() - d.getUpgradeCost(id));
     d.setLevel(id, d.getLevel(id) + 1);
-    d.setUpgradeCost(id, (long) Math.pow(200, d.getLevel(id) + 1));
+    // 下一级成本：200^新等级（确保只有1升2为200）
+    d.setUpgradeCost(id, (long) Math.pow(200, d.getLevel(id)));
     double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
     d.setGlobalAttack(newAttack);
     if (id == 1) { d.setMaxHealthBonus(d.getMaxHealthBonus() + 5); applyHealth(p, d); }
