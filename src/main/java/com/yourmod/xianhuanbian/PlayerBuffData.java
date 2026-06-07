@@ -33,7 +33,8 @@ public class PlayerBuffData {
             maxDurations[i] = 0;
             durations[i] = 0;
         }
-    }public boolean isUnlocked(int id) { return unlocked[id]; }
+    }
+    public boolean isUnlocked(int id) { return unlocked[id]; }
 public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
 public boolean isActive(int id) { return active[id]; }
 public void setActive(int id, boolean v) { active[id] = v; }
@@ -103,7 +104,8 @@ public void onLevelUp(int id) {
         if (lv >= 10) setDuration(id, 0);
         else setDuration(id, calcDuration(lv, 60));
     }
-}public static PlayerBuffData get(ServerPlayerEntity player) {
+}
+    public static PlayerBuffData get(ServerPlayerEntity player) {
     return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> new PlayerBuffData());
 }
 public void save(ServerPlayerEntity player) { SERVER_DATA.put(player.getUuid(), this); }
@@ -131,7 +133,8 @@ public static PlayerBuffData fromNbt(NbtCompound tag) {
     data.killHealAmount = tag.getInt("killHeal");
     data.killMultiplier = tag.getDouble("killMult");
     return data;
-}    public NbtCompound toNbt() {
+}
+        public NbtCompound toNbt() {
         NbtCompound tag = new NbtCompound();
         for (int i = 1; i <= 12; i++) {
             tag.putBoolean("unlocked" + i, unlocked[i]);
