@@ -22,14 +22,14 @@ public class PlayerBuffData {
     private long playTicks = 0;
     private double globalAttack = 0;
     private int maxHealthBonus = 0;
-    private int killHealAmount = 0;
+    private int killHealAmount = 0;      // 第十环击杀回血
     private double killMultiplier = 1.0;
+    private int regenLevel = 0;          // 第一环生命回复等级
 
     public PlayerBuffData() {
         Arrays.fill(chance, 0.000001f);
         for (int i = 1; i <= 12; i++) {
             levels[i] = 1;
-            // 1→2:200，之后200^当前等级
             upgradeCost[i] = (i == 1) ? 200 : (long) Math.pow(200, i);
             maxDurations[i] = 0;
             durations[i] = 0;
@@ -70,6 +70,8 @@ public int getKillHealAmount() { return killHealAmount; }
 public void setKillHealAmount(int v) { killHealAmount = v; }
 public double getKillMultiplier() { return killMultiplier; }
 public void setKillMultiplier(double v) { killMultiplier = v; }
+public int getRegenLevel() { return regenLevel; }
+public void setRegenLevel(int v) { regenLevel = v; }
 
 public void adjustChances() {
     int unlockedCount = 0;
@@ -133,6 +135,7 @@ public static PlayerBuffData fromNbt(NbtCompound tag) {
     data.maxHealthBonus = tag.getInt("maxHealth");
     data.killHealAmount = tag.getInt("killHeal");
     data.killMultiplier = tag.getDouble("killMult");
+    data.regenLevel = tag.getInt("regen");
     return data;
 }
         public NbtCompound toNbt() {
@@ -155,6 +158,7 @@ public static PlayerBuffData fromNbt(NbtCompound tag) {
         tag.putInt("maxHealth", maxHealthBonus);
         tag.putInt("killHeal", killHealAmount);
         tag.putDouble("killMult", killMultiplier);
+        tag.putInt("regen", regenLevel);
         return tag;
     }
 }
