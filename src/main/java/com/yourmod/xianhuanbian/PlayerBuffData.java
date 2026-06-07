@@ -29,6 +29,7 @@ public class PlayerBuffData {
         Arrays.fill(chance, 0.000001f);
         for (int i = 1; i <= 12; i++) {
             levels[i] = 1;
+            // 1→2:200，之后200^当前等级
             upgradeCost[i] = (i == 1) ? 200 : (long) Math.pow(200, i);
             maxDurations[i] = 0;
             durations[i] = 0;
