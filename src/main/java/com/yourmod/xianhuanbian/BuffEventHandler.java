@@ -29,6 +29,7 @@ public class BuffEventHandler {
 
     public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffData d) {
         float cost = d.getEnergyCostPerTick();
+        // 每 tick 重置能力状态（修复右键问题）
         PlayerEntity player = (PlayerEntity) p;
         player.getAbilities().allowFlying = false;
         player.getAbilities().flying = false;
@@ -36,6 +37,7 @@ public class BuffEventHandler {
         player.noClip = false;
         player.sendAbilitiesUpdate();
 
+        // 第一环常驻生命上限
         if (d.isUnlocked(1)) {
             EntityAttributeInstance attr = p.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
             if (attr != null) {
@@ -45,15 +47,17 @@ public class BuffEventHandler {
                 attr.addPersistentModifier(mod);
                 p.setHealth(Math.min(p.getHealth(), p.getMaxHealth()));
             }
+            // 第一环生命回复（激活时生效，每 20 tick 回复等级数生命）
             if (d.isActive(1) && p.age % 20 == 0) {
                 int regen = d.getRegenLevel();
                 if (regen > 0) p.heal(regen);
             }
         }
 
+        // 修炼计时与点数获取
         if (d.isMeditating()) {
             d.setMeditateTimer(d.getMeditateTimer() + 1);
-            if (d.getMeditateTimer() >= 100) {
+            if (d.getMeditateTimer() >= 100) { // 5 秒 = 100 tick
                 d.setMeditateTimer(0);
                 int activeRings = 0, totalLevels = 0;
                 for (int i = 1; i <= 12; i++) if (d.isActive(i)) { activeRings++; totalLevels += d.getLevel(i); }
@@ -63,10 +67,13 @@ public class BuffEventHandler {
             p.setPose(net.minecraft.entity.EntityPose.SITTING);
         }
 
+        // 应用属性加点
         applyAttributes(p, d);
 
+        // 逐个气环生效
         for (int i = 1; i <= 12; i++) {
             if (!d.isActive(i)) continue;
+            // 时间限制处理（有持续时间的 Buff）
             if (i == 2 || i == 3 || i == 4 || i == 5 || i == 6 || i == 7 || i == 9) {
                 int dur = d.getDuration(i);
                 if (dur > 0) { d.setDuration(i, dur - 1); if (dur - 1 <= 0) { d.setActive(i, false); continue; } }
@@ -76,12 +83,14 @@ public class BuffEventHandler {
             applySingleBuff(p, i, d);
         }
 
+        // 第八环武器定时给予（30 秒）
         if (d.isActive(8)) {
             int cd = d.getDuration(8);
             if (cd <= 0) { giveRandomWeapon(p, d); d.setDuration(8, 600); }
             else d.setDuration(8, cd - 1);
         }
 
+        // 第十一环自动升级（每 5 分钟）
         if (d.isActive(11)) {
             d.setPlayTicks(d.getPlayTicks() + 1);
             if (d.getPlayTicks() % (20 * 60 * 5) == 0) {
@@ -100,9 +109,10 @@ public class BuffEventHandler {
             moveAttr.addPersistentModifier(mod);
         }
     }
-    private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData d) {
+   private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData d) {
     int lv = d.getLevel(id);
     double strBonus = d.getStrength() * 0.5;
+    // 全局攻击力（被动常驻）
     if (d.getGlobalAttack() + strBonus > 0) {
         var attr = p.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_DAMAGE);
         if (attr != null) {
@@ -126,6 +136,7 @@ public class BuffEventHandler {
 
 public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
+    // 第三环必定暴击
     if (d.isActive(3)) {
         int lv = d.getLevel(3);
         double critMultiplier = 2.0 + (lv - 1) * 0.5;
@@ -133,19 +144,22 @@ public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, Living
         totalDamage = critMultiplier * (d.getGlobalAttack() + d.getStrength() * 0.5);
         target.damage(p.getDamageSources().mobAttack(p), (float) totalDamage);
     }
+    // 第五环空气屏障（强制传送并造成窒息伤害）
     if (d.isActive(5)) {
         BlockPos pos = target.getBlockPos();
         World world = p.getWorld();
         world.setBlockState(pos, net.minecraft.block.Blocks.BARRIER.getDefaultState());
         target.teleport(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
-        target.setPosition(target.getPos()); // 强行锁定
+        target.setPosition(target.getPos()); // 强行锁定位置
         p.getServer().execute(() -> world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState()));
     }
+    // 第六环伤害倍率
     if (d.isActive(6)) {
         float mul = 2.0f + (d.getLevel(6) - 1) * 0.8f;
         totalDamage += mul * (d.getGlobalAttack() + d.getStrength() * 0.5);
         target.damage(p.getDamageSources().mobAttack(p), mul * (float) (d.getGlobalAttack() + d.getStrength() * 0.5));
     }
+    // 第九环负面效果
     if (d.isActive(9)) {
         int dur = d.getDuration(9) == 0 ? (d.getLevel(9) < 10 ? 10 * 20 : 600 * 20) : d.getDuration(9);
         List<StatusEffectInstance> effects = Arrays.asList(
@@ -162,6 +176,7 @@ public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, Living
             target.getWorld().spawnEntity(lightning);
         }
     }
+    // 第十环生命汲取（造成伤害的 20% 回复）
     if (d.isActive(10) && totalDamage > 0) {
         p.heal((float) (totalDamage * 0.2));
     }
@@ -170,11 +185,11 @@ public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, Living
 
 public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     if (d.isActive(10)) {
-        p.heal(d.getKillHealAmount());
+        p.heal(d.getKillHealAmount());    // 击杀回血
         double mul = d.getKillMultiplier();
-        d.addCultivation((long) (20 * mul));
+        d.addCultivation((long) (20 * mul));  // 修为倍率
     }
-    d.addKill();
+    d.addKill();  // 击杀计数（加点系统）
 }
     public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float probInc, long cultivationInc, boolean isMeditating) {
     d.addCultivation(cultivationInc);
@@ -191,6 +206,7 @@ public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEn
             }
         }
     }
+    // 自动修为升级
     for (int i = 1; i <= 10; i++) {
         if (d.isUnlocked(i) && d.getLevel(i) < 99 && d.getCultivation() >= d.getUpgradeCost(i)) {
             upgradeBuff(p, d, i);
@@ -206,6 +222,7 @@ public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEn
     }
 }
 
+// 尝试初次觉醒（行为概率决定随机环）
 public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d) {
     if (d.hasAnyRing()) return false;
     d.applyBehaviorChances();
@@ -259,8 +276,10 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
     }
 }
     private static void giveRandomWeapon(ServerPlayerEntity p, PlayerBuffData d) {
+    // 检查是否已存在仙环武器
     for (ItemStack stack : p.getInventory().main) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
     for (ItemStack stack : p.getInventory().offHand) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
+
     int lv = d.getLevel(8);
     List<Item> weapons = new ArrayList<>();
     if (lv <= 1) weapons = Arrays.asList(Items.WOODEN_SWORD, Items.WOODEN_AXE, Items.STONE_SWORD, Items.STONE_AXE);
@@ -273,7 +292,11 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
     ItemStack weaponStack = new ItemStack(chosen);
     weaponStack.setDamage(weaponStack.getMaxDamage() - 3);
     weaponStack.getOrCreateNbt().putBoolean(WEAPON_TAG, true);
-    List<Enchantment> attackEnchants = Arrays.asList(Enchantments.SHARPNESS, Enchantments.KNOCKBACK, Enchantments.FIRE_ASPECT, Enchantments.LOOTING, Enchantments.SWEEPING);
+
+    List<Enchantment> attackEnchants = Arrays.asList(
+        Enchantments.SHARPNESS, Enchantments.KNOCKBACK, Enchantments.FIRE_ASPECT,
+        Enchantments.LOOTING, Enchantments.SWEEPING
+    );
     Enchantment enchant = attackEnchants.get(RANDOM.nextInt(attackEnchants.size()));
     if (enchant == Enchantments.SWEEPING && !(chosen instanceof SwordItem)) enchant = Enchantments.SHARPNESS;
     weaponStack.addEnchantment(enchant, Math.min(lv, 10));
