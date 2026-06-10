@@ -54,9 +54,66 @@ public class PlayerBuffData {
             durations[i] = 0;
         }
     }
-    public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
-public void setBehaviorDone(int id) { behaviorDone[id] = true; }
+    // --- 基础 getter/setter ---
+public boolean isUnlocked(int id) { return unlocked[id]; }
+public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
+public boolean isActive(int id) { return active[id]; }
+public void setActive(int id, boolean v) { active[id] = v; }
+public float getChance(int id) { return chance[id]; }
+public void setChance(int id, float v) { chance[id] = v; }
+public void increaseChance(int id, float inc) { chance[id] += inc; }
+public int getLevel(int id) { return levels[id]; }
+public void setLevel(int id, int lv) { levels[id] = lv; }
+public int getDuration(int id) { return durations[id]; }
+public void setDuration(int id, int v) { durations[id] = v; }
+public int getMaxDuration(int id) { return maxDurations[id]; }
+public void setMaxDuration(int id, int v) { maxDurations[id] = v; }
+public long getUpgradeCost(int id) { return upgradeCost[id]; }
+public void setUpgradeCost(int id, long cost) { upgradeCost[id] = cost; }
+public long getCultivation() { return cultivation; }
+public void addCultivation(long amt) { cultivation += amt; }
+public void setCultivation(long v) { cultivation = v; }
+public int getEnergy() { return energy; }
+public void setEnergy(int v) { energy = Math.max(0, Math.min(maxEnergy, v)); }
+public void addEnergy(int v) { setEnergy(energy + v); }
+public int getMaxEnergy() { return maxEnergy; }
+public void setMaxEnergy(int v) { maxEnergy = v; }
+public float getEnergyCostPerTick() { return energyCostPerTick; }
+public void setEnergyCostPerTick(float v) { energyCostPerTick = v; }
+public long getPlayTicks() { return playTicks; }
+public void setPlayTicks(long t) { playTicks = t; }
+public double getGlobalAttack() { return globalAttack; }
+public void setGlobalAttack(double v) { globalAttack = v; }
+public int getMaxHealthBonus() { return maxHealthBonus; }
+public void setMaxHealthBonus(int v) { maxHealthBonus = v; }
+public int getKillHealAmount() { return killHealAmount; }
+public void setKillHealAmount(int v) { killHealAmount = v; }
+public double getKillMultiplier() { return killMultiplier; }
+public void setKillMultiplier(double v) { killMultiplier = v; }
+public int getRegenLevel() { return regenLevel; }
+public void setRegenLevel(int v) { regenLevel = v; }
 
+// --- 加点系统 ---
+public int getAvailablePoints() { return availablePoints; }
+public void setAvailablePoints(int v) { availablePoints = v; }
+public void addAvailablePoints(int v) { availablePoints += v; }
+public int getStrength() { return strength; }
+public void setStrength(int v) { strength = v; }
+public int getSpeed() { return speed; }
+public void setSpeed(int v) { speed = v; }
+public int getVitality() { return vitality; }
+public void setVitality(int v) { vitality = v; }
+public int getKillCounter() { return killCounter; }
+public void setKillCounter(int v) { killCounter = v; }
+public void addKill() { killCounter++; if (killCounter >= 20) { killCounter = 0; availablePoints++; } }
+public boolean isMeditating() { return isMeditating; }
+public void setMeditating(boolean v) { isMeditating = v; }
+public int getMeditateTimer() { return meditateTimer; }
+public void setMeditateTimer(int v) { meditateTimer = v; }
+
+// --- 行为计数 ---
+public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
+public void setBehaviorDone(int id) { behaviorDone[id] = true; }
 public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
 public void addLeftClick() { if (!hasAnyRing() && !behaviorDone[2]) { leftClickCount++; if (leftClickCount >= 100) setBehaviorDone(2); } }
 public void addItemKill() { if (!hasAnyRing() && !behaviorDone[3]) { itemKillCount++; if (itemKillCount >= 15) setBehaviorDone(3); } }
@@ -72,7 +129,7 @@ public boolean hasAnyRing() {
     for (int i = 1; i <= 10; i++) if (unlocked[i]) return true;
     return false;
 }
-
+    // --- 概率调整 ---
 public void applyBehaviorChances() {
     for (int i = 1; i <= 10; i++) {
         if (behaviorDone[i]) chance[i] = 0.1f + 0.1f;
@@ -104,6 +161,7 @@ public void adjustChances() {
     }
 }
 
+// --- 能量与升级 ---
 public void upgradeEnergy() {
     maxEnergy += 5;
     energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f);
@@ -129,7 +187,7 @@ public void onLevelUp(int id) {
         else setDuration(id, calcDuration(lv, 60));
     }
 }
-  public static PlayerBuffData get(ServerPlayerEntity player) {
+    public static PlayerBuffData get(ServerPlayerEntity player) {
     return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> new PlayerBuffData());
 }
 public void save(ServerPlayerEntity player) { SERVER_DATA.put(player.getUuid(), this); }
@@ -177,8 +235,8 @@ public static PlayerBuffData fromNbt(NbtCompound tag) {
     data.isMeditating = tag.getBoolean("med");
     data.meditateTimer = tag.getInt("medTimer");
     return data;
-}  
-    public NbtCompound toNbt() {
+}
+        public NbtCompound toNbt() {
         NbtCompound tag = new NbtCompound();
         for (int i = 1; i <= 12; i++) {
             tag.putBoolean("unlocked" + i, unlocked[i]);
