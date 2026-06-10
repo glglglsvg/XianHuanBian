@@ -34,7 +34,6 @@ public class PlayerBuffData {
     private boolean isMeditating = false;
     private int meditateTimer = 0;
 
-    // 行为计数与完成标志
     private boolean[] behaviorDone = new boolean[11];
     private int eatCount = 0;
     private int leftClickCount = 0;
@@ -55,8 +54,7 @@ public class PlayerBuffData {
             durations[i] = 0;
         }
     }
-    // 原有 getter/setter 省略，仅列出新增
-public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
+    public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
 public void setBehaviorDone(int id) { behaviorDone[id] = true; }
 
 public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
@@ -131,7 +129,7 @@ public void onLevelUp(int id) {
         else setDuration(id, calcDuration(lv, 60));
     }
 }
-    public static PlayerBuffData get(ServerPlayerEntity player) {
+  public static PlayerBuffData get(ServerPlayerEntity player) {
     return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> new PlayerBuffData());
 }
 public void save(ServerPlayerEntity player) { SERVER_DATA.put(player.getUuid(), this); }
@@ -152,89 +150,34 @@ public static PlayerBuffData fromNbt(NbtCompound tag) {
         data.chance[i] = tag.getFloat("chance" + i);
         data.behaviorDone[i] = tag.getBoolean("bdone" + i);
     }
-    data.eatCount = tag.getInt("eat"); data.leftClickCount = tag.getInt("lclick"); data.itemKillCount = tag.getInt("ikill");
-    data.walkDist = tag.getDouble("walk"); data.breakCount = tag.getInt("break"); data.plantCount = tag.getInt("plant");
-    data.placeCount = tag.getInt("place"); data.craftToolCount = tag.getInt("craft"); data.fireWaterCount = tag.getInt("fire");
-    data.cultivation = tag.getLong("cultivation"); data.energy = tag.getInt("energy"); data.maxEnergy = tag.getInt("maxEnergy");
-    data.energyCostPerTick = tag.getFloat("energyCost"); data.playTicks = tag.getLong("playTicks");
-    data.globalAttack = tag.getDouble("globalAttack"); data.maxHealthBonus = tag.getInt("maxHealth");
-    data.killHealAmount = tag.getInt("killHeal"); data.killMultiplier = tag.getDouble("killMult");
+    data.eatCount = tag.getInt("eat");
+    data.leftClickCount = tag.getInt("lclick");
+    data.itemKillCount = tag.getInt("ikill");
+    data.walkDist = tag.getDouble("walk");
+    data.breakCount = tag.getInt("break");
+    data.plantCount = tag.getInt("plant");
+    data.placeCount = tag.getInt("place");
+    data.craftToolCount = tag.getInt("craft");
+    data.fireWaterCount = tag.getInt("fire");
+    data.cultivation = tag.getLong("cultivation");
+    data.energy = tag.getInt("energy");
+    data.maxEnergy = tag.getInt("maxEnergy");
+    data.energyCostPerTick = tag.getFloat("energyCost");
+    data.playTicks = tag.getLong("playTicks");
+    data.globalAttack = tag.getDouble("globalAttack");
+    data.maxHealthBonus = tag.getInt("maxHealth");
+    data.killHealAmount = tag.getInt("killHeal");
+    data.killMultiplier = tag.getDouble("killMult");
     data.regenLevel = tag.getInt("regen");
-    data.availablePoints = tag.getInt("points"); data.strength = tag.getInt("str"); data.speed = tag.getInt("spd");
-    data.vitality = tag.getInt("vit"); data.killCounter = tag.getInt("kills"); data.isMeditating = tag.getBoolean("med");
+    data.availablePoints = tag.getInt("points");
+    data.strength = tag.getInt("str");
+    data.speed = tag.getInt("spd");
+    data.vitality = tag.getInt("vit");
+    data.killCounter = tag.getInt("kills");
+    data.isMeditating = tag.getBoolean("med");
     data.meditateTimer = tag.getInt("medTimer");
     return data;
-}
-        public NbtCompound toNbt() {
-        NbtCompound tag = new NbtCompound();
-        for (int i = 1; i <= 12; i++) {
-            tag.putBoolean("unlocked" + i, unlocked[i]);
-            tag.putBoolean("active" + i, active[i]);
-            tag.putInt("level" + i, levels[i]);
-            tag.putInt("dur" + i, durations[i]);
-            tag.putInt("maxDur" + i, maxDurations[i]);
-            tag.putLong("cost" + i, upgradeCost[i]);
-        }
-        for (int i = 1; i <= 10; i++) {
-            tag.putFloat("chance" + i, chance[i]);
-            tag.putBoolean("bdone" + i, behaviorDone[i]);
-        }
-        tag.putInt("eat", eatCount); tag.putInt("lclick", leftClickCount); tag.putInt("ikill", itemKillCount);
-        tag.putDouble("walk", walkDist); tag.putInt("break", breakCount); tag.putInt("plant", plantCount);
-        tag.putInt("place", placeCount); tag.putInt("craft", craftToolCount); tag.putInt("fire", fireWaterCount);
-        tag.putLong("cultivation", cultivation); tag.putInt("energy", energy); tag.putInt("maxEnergy", maxEnergy);
-        tag.putFloat("energyCost", energyCostPerTick); tag.putLong("playTicks", playTicks);
-        tag.putDouble("globalAttack", globalAttack); tag.putInt("maxHealth", maxHealthBonus);
-        tag.putInt("killHeal", killHealAmount); tag.putDouble("killMult", killMultiplier); tag.putInt("regen", regenLevel);
-        tag.putInt("points", availablePoints); tag.putInt("str", strength); tag.putInt("spd", speed);
-        tag.putInt("vit", vitality); tag.putInt("kills", killCounter); tag.putBoolean("med", isMeditating);
-        tag.putInt("medTimer", meditateTimer);
-        return tag;
-    }
-}
-    public static PlayerBuffData fromNbt(NbtCompound tag) {
-        PlayerBuffData data = new PlayerBuffData();
-        for (int i = 1; i <= 12; i++) {
-            data.unlocked[i] = tag.getBoolean("unlocked" + i);
-            data.active[i] = tag.getBoolean("active" + i);
-            data.levels[i] = tag.getInt("level" + i);
-            data.durations[i] = tag.getInt("dur" + i);
-            data.maxDurations[i] = tag.getInt("maxDur" + i);
-            data.upgradeCost[i] = tag.getLong("cost" + i);
-        }
-        for (int i = 1; i <= 10; i++) {
-            data.chance[i] = tag.getFloat("chance" + i);
-            data.behaviorDone[i] = tag.getBoolean("bdone" + i);
-        }
-        data.eatCount = tag.getInt("eat");
-        data.leftClickCount = tag.getInt("lclick");
-        data.itemKillCount = tag.getInt("ikill");
-        data.walkDist = tag.getDouble("walk");
-        data.breakCount = tag.getInt("break");
-        data.plantCount = tag.getInt("plant");
-        data.placeCount = tag.getInt("place");
-        data.craftToolCount = tag.getInt("craft");
-        data.fireWaterCount = tag.getInt("fire");
-        data.cultivation = tag.getLong("cultivation");
-        data.energy = tag.getInt("energy");
-        data.maxEnergy = tag.getInt("maxEnergy");
-        data.energyCostPerTick = tag.getFloat("energyCost");
-        data.playTicks = tag.getLong("playTicks");
-        data.globalAttack = tag.getDouble("globalAttack");
-        data.maxHealthBonus = tag.getInt("maxHealth");
-        data.killHealAmount = tag.getInt("killHeal");
-        data.killMultiplier = tag.getDouble("killMult");
-        data.regenLevel = tag.getInt("regen");
-        data.availablePoints = tag.getInt("points");
-        data.strength = tag.getInt("str");
-        data.speed = tag.getInt("spd");
-        data.vitality = tag.getInt("vit");
-        data.killCounter = tag.getInt("kills");
-        data.isMeditating = tag.getBoolean("med");
-        data.meditateTimer = tag.getInt("medTimer");
-        return data;
-    }
-
+}  
     public NbtCompound toNbt() {
         NbtCompound tag = new NbtCompound();
         for (int i = 1; i <= 12; i++) {
