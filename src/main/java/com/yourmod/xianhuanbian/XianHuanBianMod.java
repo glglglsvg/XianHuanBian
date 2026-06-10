@@ -15,8 +15,7 @@ import net.minecraft.item.*;
 import net.minecraft.block.*;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
-import net.minecraft.item.BlockItem;  // 新增
+import java.util.*;   // 这一行必须存在
 
 public class XianHuanBianMod implements ModInitializer {
     public static final String MODID = "xianhuanbian";
