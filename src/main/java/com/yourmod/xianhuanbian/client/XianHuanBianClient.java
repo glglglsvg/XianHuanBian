@@ -50,10 +50,11 @@ public class XianHuanBianClient implements ClientModInitializer {
             singleKeys.put(i, kb);
         }
 
+        // 攻击粒子特效（环形扩散 + 普通攻击粒子）
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClient && entity instanceof LivingEntity target) {
                 spawnAttackRing(MinecraftClient.getInstance(), target);
-                spawnHorizontalRing(MinecraftClient.getInstance(), target); // 环形扩散粒子
+                spawnHorizontalRing(MinecraftClient.getInstance(), target);
             }
             return ActionResult.PASS;
         });
@@ -64,24 +65,29 @@ public class XianHuanBianClient implements ClientModInitializer {
             ClientTickEvents.END_CLIENT_TICK.register(client -> {
         if (client.player == null || client.world == null) return;
         PlayerBuffData d = PlayerBuffData.getClient();
+        // 回气
         while (refillKey.wasPressed()) ClientPlayNetworking.send(XianHuanBianMod.REFILL_ENERGY, PacketByteBufs.empty());
+        // 属性页面
         while (infoKey.wasPressed()) ClientPlayNetworking.send(XianHuanBianMod.REQUEST_INFO, PacketByteBufs.empty());
+        // 修炼开关
         while (meditateKey.wasPressed()) {
             if (d.isMeditating()) ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_STOP, PacketByteBufs.empty());
             else ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_START, PacketByteBufs.empty());
         }
+        // 十个独立气环开关
         for (int i = 1; i <= 10; i++) {
             KeyBinding kb = singleKeys.get(i);
             if (kb != null && kb.wasPressed()) ClientPlayNetworking.send(new Identifier("xianhuanbian", "toggle_" + i), PacketByteBufs.empty());
         }
+        // 玩家自身光环粒子
         for (int i = 1; i <= 12; i++) if (d.isActive(i)) spawnPlayerRing(client, client.player, i, COLORS[i]);
 
-        // 左键点击计数
+        // 左键点击计数（代替觉醒）
         if (client.options.attackKey.wasPressed()) {
             ClientPlayNetworking.send(XianHuanBianMod.LEFT_CLICK_COUNT, PacketByteBufs.empty());
         }
 
-        // HUD
+        // HUD：能量、修为、环状态
         StringBuilder hud = new StringBuilder("气 [");
         int barLen = 20, filled = (int) (d.getEnergy() / 100.0 * barLen);
         for (int i = 0; i < barLen; i++) hud.append(i < filled ? "|" : " ");
@@ -106,11 +112,10 @@ public class XianHuanBianClient implements ClientModInitializer {
         for (int j = 0; j < PARTICLE_COUNT; j++) { double angle = (2 * Math.PI / PARTICLE_COUNT) * j; double offsetY = rad * Math.sin(angle), offsetXZ = rad * Math.cos(angle); cl.world.addParticle(verticalEffect, target.getX() + offsetXZ * 0.5, target.getY() + offsetY * 0.5 + target.getHeight()/2.0, target.getZ() + offsetXZ * 0.5, 0, 0, 0); }
     }
 
-    // 新增环形扩散粒子
     private void spawnHorizontalRing(MinecraftClient cl, LivingEntity target) {
         double y = target.getY() + target.getHeight() / 2.0;
         double rad = 0.3;
-        var color = new Vector3f(0.5f, 1.0f, 0.5f); // 淡绿色扩散环
+        var color = new Vector3f(0.5f, 1.0f, 0.5f);
         var effect = new DustParticleEffect(color, 0.5f);
         for (int j = 0; j < 12; j++) {
             double angle = (2 * Math.PI / 12) * j + (target.age * 0.1);
@@ -118,7 +123,6 @@ public class XianHuanBianClient implements ClientModInitializer {
             double z = target.getZ() + rad * Math.sin(angle);
             cl.world.addParticle(effect, x, y, z, Math.cos(angle)*0.05, 0, Math.sin(angle)*0.05);
         }
-        // 第二圈稍大
         rad = 0.5;
         effect = new DustParticleEffect(new Vector3f(0.3f, 0.8f, 1.0f), 0.4f);
         for (int j = 0; j < 12; j++) {
