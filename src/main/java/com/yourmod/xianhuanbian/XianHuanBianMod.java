@@ -8,6 +8,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.*;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.*;
@@ -41,13 +42,11 @@ public class XianHuanBianMod implements ModInitializer {
     ));
     @Override
 public void onInitialize() {
-    // 注册命令
     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
         ToggleBuffCommand.register(dispatcher);
         BuffEventHandler.registerCommands(dispatcher);
     });
 
-    // 每 tick 处理
     ServerTickEvents.END_SERVER_TICK.register(server -> {
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             PlayerBuffData data = PlayerBuffData.get(player);
@@ -69,7 +68,6 @@ public void onInitialize() {
         }
     });
 
-    // 左键计数
     ServerPlayNetworking.registerGlobalReceiver(LEFT_CLICK_COUNT, (server, player, handler, buf, responseSender) -> {
         server.execute(() -> {
             PlayerBuffData data = PlayerBuffData.get(player);
@@ -86,10 +84,9 @@ public void onInitialize() {
                 data.addEat();
             }
         }
-        return ActionResult.PASS;
+        return TypedActionResult.pass(player.getStackInHand(hand));
     });
 
-    // 击杀实体
     ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
         if (source.getAttacker() instanceof ServerPlayerEntity sp) {
             PlayerBuffData data = PlayerBuffData.get(sp);
@@ -101,7 +98,6 @@ public void onInitialize() {
         }
     });
 
-    // 挖掘方块
     PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
         if (!world.isClient && player instanceof ServerPlayerEntity sp) {
             PlayerBuffData data = PlayerBuffData.get(sp);
@@ -113,10 +109,11 @@ public void onInitialize() {
         }
     });
 
-    // 种植
-    UseItemOnBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
+    // 种植（使用 UseBlockCallback）
+    UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
         if (!world.isClient && player instanceof ServerPlayerEntity sp) {
-            if (player.getStackInHand(hand).getItem() instanceof AliasedBlockItem) {
+            ItemStack stack = player.getStackInHand(hand);
+            if (stack.getItem() instanceof AliasedBlockItem) {
                 PlayerBuffData data = PlayerBuffData.get(sp);
                 data.addPlant();
                 data.save(sp); syncToClient(sp, data);
@@ -144,10 +141,9 @@ public void onInitialize() {
                 data.save(sp); syncToClient(sp, data);
             }
         }
-        return ActionResult.PASS;
+        return TypedActionResult.pass(player.getStackInHand(hand));
     });
-        // 修炼开始
-    ServerPlayNetworking.registerGlobalReceiver(MEDITATE_START, (server, player, handler, buf, responseSender) -> {
+        ServerPlayNetworking.registerGlobalReceiver(MEDITATE_START, (server, player, handler, buf, responseSender) -> {
         server.execute(() -> {
             PlayerBuffData data = PlayerBuffData.get(player);
             data.setMeditating(true);
@@ -155,7 +151,6 @@ public void onInitialize() {
             player.sendMessage(net.minecraft.text.Text.literal("开始修炼..."), true);
         });
     });
-    // 修炼结束
     ServerPlayNetworking.registerGlobalReceiver(MEDITATE_STOP, (server, player, handler, buf, responseSender) -> {
         server.execute(() -> {
             PlayerBuffData data = PlayerBuffData.get(player);
@@ -165,7 +160,6 @@ public void onInitialize() {
             player.sendMessage(net.minecraft.text.Text.literal("结束修炼"), true);
         });
     });
-    // 属性页面
     ServerPlayNetworking.registerGlobalReceiver(REQUEST_INFO, (server, player, handler, buf, responseSender) -> {
         server.execute(() -> {
             PlayerBuffData data = PlayerBuffData.get(player);
@@ -183,7 +177,6 @@ public void onInitialize() {
             player.sendMessage(net.minecraft.text.Text.literal(sb.toString()), false);
         });
     });
-    // 回气
     ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
         server.execute(() -> {
             PlayerBuffData data = PlayerBuffData.get(player);
@@ -193,7 +186,6 @@ public void onInitialize() {
         });
     });
 
-    // 十个独立气环开关
     for (int i = 1; i <= 10; i++) {
         final int id = i;
         Identifier toggleId = new Identifier(MODID, "toggle_" + id);
