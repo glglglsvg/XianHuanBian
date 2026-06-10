@@ -15,7 +15,8 @@ import net.minecraft.item.*;
 import net.minecraft.block.*;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import java.util.*;
+import net.minecraft.util.TypedActionResult;
+import net.minecraft.item.BlockItem;  // 新增
 
 public class XianHuanBianMod implements ModInitializer {
     public static final String MODID = "xianhuanbian";
@@ -40,13 +41,15 @@ public class XianHuanBianMod implements ModInitializer {
         Blocks.NETHER_QUARTZ_ORE, Blocks.NETHER_GOLD_ORE,
         Blocks.ANCIENT_DEBRIS
     ));
-    @Override
+@Override
 public void onInitialize() {
+    // 注册命令
     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
         ToggleBuffCommand.register(dispatcher);
         BuffEventHandler.registerCommands(dispatcher);
     });
 
+    // 每 tick 处理（行走距离、经验检测、初次觉醒尝试）
     ServerTickEvents.END_SERVER_TICK.register(server -> {
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             PlayerBuffData data = PlayerBuffData.get(player);
@@ -68,6 +71,7 @@ public void onInitialize() {
         }
     });
 
+    // 左键计数（客户端每左键一次发送一个包）
     ServerPlayNetworking.registerGlobalReceiver(LEFT_CLICK_COUNT, (server, player, handler, buf, responseSender) -> {
         server.execute(() -> {
             PlayerBuffData data = PlayerBuffData.get(player);
@@ -75,18 +79,29 @@ public void onInitialize() {
         });
     });
 
-    // 吃东西
+    // 统一处理物品使用：食物、点火/放水/喷溅药水、放置方块
     UseItemCallback.EVENT.register((player, world, hand) -> {
         if (!world.isClient && player instanceof ServerPlayerEntity sp) {
             ItemStack stack = player.getStackInHand(hand);
+            PlayerBuffData data = PlayerBuffData.get(sp);
+
             if (stack.isFood()) {
-                PlayerBuffData data = PlayerBuffData.get(sp);
                 data.addEat();
+            } else if (stack.getItem() instanceof FlintAndSteelItem
+                    || stack.getItem() instanceof BucketItem
+                    || stack.getItem() instanceof SplashPotionItem) {
+                data.addFireWater();
+            } else if (stack.getItem() instanceof BlockItem) {
+                data.addPlace();   // 放置方块计数
             }
+
+            data.save(sp);
+            syncToClient(sp, data);
         }
         return TypedActionResult.pass(player.getStackInHand(hand));
     });
 
+    // 击杀实体（第三环物品击杀、第十环经验检测、击杀回血、修为）
     ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
         if (source.getAttacker() instanceof ServerPlayerEntity sp) {
             PlayerBuffData data = PlayerBuffData.get(sp);
@@ -98,6 +113,7 @@ public void onInitialize() {
         }
     });
 
+    // 挖掘方块（破坏计数 + 矿石修为）
     PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
         if (!world.isClient && player instanceof ServerPlayerEntity sp) {
             PlayerBuffData data = PlayerBuffData.get(sp);
@@ -109,7 +125,7 @@ public void onInitialize() {
         }
     });
 
-    // 种植（使用 UseBlockCallback）
+    // 种植（种子使用）
     UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
         if (!world.isClient && player instanceof ServerPlayerEntity sp) {
             ItemStack stack = player.getStackInHand(hand);
@@ -120,28 +136,6 @@ public void onInitialize() {
             }
         }
         return ActionResult.PASS;
-    });
-
-    // 放置方块
-    PlayerBlockPlaceEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
-        if (!world.isClient && player instanceof ServerPlayerEntity sp) {
-            PlayerBuffData data = PlayerBuffData.get(sp);
-            data.addPlace();
-            data.save(sp); syncToClient(sp, data);
-        }
-    });
-
-    // 点火/放水/喷溅药水
-    UseItemCallback.EVENT.register((player, world, hand) -> {
-        if (!world.isClient && player instanceof ServerPlayerEntity sp) {
-            ItemStack stack = player.getStackInHand(hand);
-            if (stack.getItem() instanceof FlintAndSteelItem || stack.getItem() instanceof BucketItem || stack.getItem() instanceof SplashPotionItem) {
-                PlayerBuffData data = PlayerBuffData.get(sp);
-                data.addFireWater();
-                data.save(sp); syncToClient(sp, data);
-            }
-        }
-        return TypedActionResult.pass(player.getStackInHand(hand));
     });
         ServerPlayNetworking.registerGlobalReceiver(MEDITATE_START, (server, player, handler, buf, responseSender) -> {
         server.execute(() -> {
