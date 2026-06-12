@@ -1,6 +1,5 @@
 package com.yourmod.xianhuanbian;
 
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
 import java.util.*;
@@ -47,14 +46,14 @@ public class PlayerBuffData {
         }
     }
 
-    // 参数改为 PlayerEntity，兼容 ServerPlayerEntity
-    public static PlayerBuffData get(PlayerEntity player) {
+    // 改回 ServerPlayerEntity
+    public static PlayerBuffData get(ServerPlayerEntity player) {
         NbtCompound root = player.getPersistentData();
         NbtCompound tag = root.getCompound("xianhuanbian");
         return fromNbt(tag);
     }
 
-    public void save(PlayerEntity player) {
+    public void save(ServerPlayerEntity player) {
         NbtCompound root = player.getPersistentData();
         root.put("xianhuanbian", toNbt());
     }
