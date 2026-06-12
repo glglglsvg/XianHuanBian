@@ -79,18 +79,20 @@ public class XianHuanBianClient implements ClientModInitializer {
                 if (kb != null && kb.wasPressed()) ClientPlayNetworking.send(new Identifier("xianhuanbian", "toggle_" + i), PacketByteBufs.empty());
             }
             for (int i = 1; i <= 12; i++) if (d.isActive(i)) spawnPlayerRing(client, client.player, i, COLORS[i]);
+                    if (client.options.attackKey.wasPressed()) {
+            ClientPlayNetworking.send(XianHuanBianMod.LEFT_CLICK_COUNT, PacketByteBufs.empty());
+        }
 
-            if (client.options.attackKey.wasPressed()) {
-                ClientPlayNetworking.send(XianHuanBianMod.LEFT_CLICK_COUNT, PacketByteBufs.empty());
-            }
-
-            StringBuilder hud = new StringBuilder("气 [");
-            int barLen = 20, filled = (int) (d.getEnergy() / 100.0 * barLen);
-            for (int i = 0; i < barLen; i++) hud.append(i < filled ? "|" : " ");
-            hud.append("] ").append(d.getEnergy()).append("% 修:").append(d.getCultivation()).append(" 环:");
-            for (int i = 1; i <= 10; if (d.isUnlocked(i)) hud.append(d.isActive(i) ? "(" : "[").append(BuffNames.NAME[i].charAt(0)).append(d.isActive(i) ? ")" : "]");
-            client.player.sendMessage(Text.literal(hud.toString()), true);
-        });
+        // 修复 HUD 循环语法
+        StringBuilder hud = new StringBuilder("气 [");
+        int barLen = 20, filled = (int) (d.getEnergy() / 100.0 * barLen);
+        for (int i = 0; i < barLen; i++) hud.append(i < filled ? "|" : " ");
+        hud.append("] ").append(d.getEnergy()).append("% 修:").append(d.getCultivation()).append(" 环:");
+        for (int i = 1; i <= 10; i++) {
+            if (d.isUnlocked(i)) hud.append(d.isActive(i) ? "(" : "[").append(BuffNames.NAME[i].charAt(0)).append(d.isActive(i) ? ")" : "]");
+        }
+        client.player.sendMessage(Text.literal(hud.toString()), true);
+    });
     }
     private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
     double y = pl.getY() + 1.0, rad = 0.5 + (id - 1) * 0.08;
