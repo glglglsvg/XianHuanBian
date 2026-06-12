@@ -1,5 +1,6 @@
 package com.yourmod.xianhuanbian;
 
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
 import java.util.*;
@@ -46,15 +47,14 @@ public class PlayerBuffData {
         }
     }
 
-    // 持久化存储：从玩家NBT读取
-    public static PlayerBuffData get(ServerPlayerEntity player) {
+    // 参数改为 PlayerEntity，兼容 ServerPlayerEntity
+    public static PlayerBuffData get(PlayerEntity player) {
         NbtCompound root = player.getPersistentData();
         NbtCompound tag = root.getCompound("xianhuanbian");
         return fromNbt(tag);
     }
 
-    // 保存到玩家NBT
-    public void save(ServerPlayerEntity player) {
+    public void save(PlayerEntity player) {
         NbtCompound root = player.getPersistentData();
         root.put("xianhuanbian", toNbt());
     }
@@ -127,36 +127,35 @@ public void addCraftTool() { if (!hasAnyRing() && !behaviorDone[8]) { craftToolC
 public void addFireWater() { if (!hasAnyRing() && !behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= 28) setBehaviorDone(9); } }
 public void checkExp(float level) { if (!hasAnyRing() && !behaviorDone[10] && level >= 2.0f) setBehaviorDone(10); }
 public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
-        // --- 概率调整 ---
-    public void applyBehaviorChances() {
-        for (int i = 1; i <= 10; i++) {
-            if (behaviorDone[i]) chance[i] = 0.1f + 0.1f;
-            else chance[i] = 0.1f;
-        }
+    // --- 概率调整 ---
+public void applyBehaviorChances() {
+    for (int i = 1; i <= 10; i++) {
+        if (behaviorDone[i]) chance[i] = 0.1f + 0.1f;
+        else chance[i] = 0.1f;
     }
-    public void resetChancesForHardMode() { Arrays.fill(chance, 0.000001f); adjustChances(); }
-    public float getEffectiveChance(int id, boolean isMeditating) {
-        float base = chance[id];
-        if (isMeditating) base *= 3.0f;
-        int unlockedCount = 0;
-        for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
-        if (unlockedCount >= 2) base *= 0.1f;
-        return Math.min(base, 1.0f);
-    }
-    public void adjustChances() {
-        int unlockedCount = 0;
-        for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
-        if (unlockedCount >= 2) for (int i = 1; i <= 10; i++) if (!unlocked[i]) chance[i] = 0.000001f / unlockedCount;
-    }
-    public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f); energy = Math.min(energy, maxEnergy); }
-    private int calcDuration(int level, int baseMin) { if (level >= 10) return 0; return baseMin * 20 + (level - 1) * (baseMin / 9) * 20; }
-    public void activate(int id, int baseMin) { setActive(id, true); if (baseMin == 0) setDuration(id, 0); else setDuration(id, calcDuration(getLevel(id), baseMin)); }
-    public void onLevelUp(int id) { upgradeEnergy(); if (maxDurations[id] != 0) { int lv = getLevel(id); if (lv >= 10) setDuration(id, 0); else setDuration(id, calcDuration(lv, 60)); } }
+}
+public void resetChancesForHardMode() { Arrays.fill(chance, 0.000001f); adjustChances(); }
+public float getEffectiveChance(int id, boolean isMeditating) {
+    float base = chance[id];
+    if (isMeditating) base *= 3.0f;
+    int unlockedCount = 0;
+    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+    if (unlockedCount >= 2) base *= 0.1f;
+    return Math.min(base, 1.0f);
+}
+public void adjustChances() {
+    int unlockedCount = 0;
+    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+    if (unlockedCount >= 2) for (int i = 1; i <= 10; i++) if (!unlocked[i]) chance[i] = 0.000001f / unlockedCount;
+}
+public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f); energy = Math.min(energy, maxEnergy); }
+private int calcDuration(int level, int baseMin) { if (level >= 10) return 0; return baseMin * 20 + (level - 1) * (baseMin / 9) * 20; }
+public void activate(int id, int baseMin) { setActive(id, true); if (baseMin == 0) setDuration(id, 0); else setDuration(id, calcDuration(getLevel(id), baseMin)); }
+public void onLevelUp(int id) { upgradeEnergy(); if (maxDurations[id] != 0) { int lv = getLevel(id); if (lv >= 10) setDuration(id, 0); else setDuration(id, calcDuration(lv, 60)); } }
 
-    public static PlayerBuffData getClient() { return CLIENT_CACHE; }
-    public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
-
-    public static PlayerBuffData fromNbt(NbtCompound tag) {
+public static PlayerBuffData getClient() { return CLIENT_CACHE; }
+public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
+        public static PlayerBuffData fromNbt(NbtCompound tag) {
         PlayerBuffData data = new PlayerBuffData();
         for (int i = 1; i <= 12; i++) {
             data.unlocked[i] = tag.getBoolean("unlocked" + i);
@@ -204,5 +203,3 @@ public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) ret
         return tag;
     }
 }
-
-            
