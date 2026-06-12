@@ -60,35 +60,39 @@ public class XianHuanBianClient implements ClientModInitializer {
             }
             return ActionResult.PASS;
         });
-    ClientTickEvents.END_CLIENT_TICK.register(client -> {
-        if (client.player == null || client.world == null) return;
-        PlayerBuffData d = PlayerBuffData.getClient();
-        while (refillKey.wasPressed()) ClientPlayNetworking.send(XianHuanBianMod.REFILL_ENERGY, PacketByteBufs.empty());
-        while (infoKey.wasPressed()) { client.setScreen(new AttributeScreen(d)); }
-        while (meditateKey.wasPressed()) {
-            if (d.isMeditating()) ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_STOP, PacketByteBufs.empty());
-            else ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_START, PacketByteBufs.empty());
-        }
-        for (int i = 1; i <= 10; i++) {
-            KeyBinding kb = singleKeys.get(i);
-            if (kb != null && kb.wasPressed()) ClientPlayNetworking.send(new Identifier("xianhuanbian", "toggle_" + i), PacketByteBufs.empty());
-        }
-        for (int i = 1; i <= 12; i++) if (d.isActive(i)) spawnPlayerRing(client, client.player, i, COLORS[i]);
 
-        if (client.options.attackKey.wasPressed()) {
-            ClientPlayNetworking.send(XianHuanBianMod.LEFT_CLICK_COUNT, PacketByteBufs.empty());
-        }
+        ClientPlayNetworking.registerGlobalReceiver(XianHuanBianMod.SYNC_BUFFS, (client, handler, buf, responseSender) -> {
+            var tag = buf.readNbt(); if (tag != null) PlayerBuffData.updateClientFromNbt(tag);
+        });
 
-        StringBuilder hud = new StringBuilder("气 [");
-        int barLen = 20, filled = (int) (d.getEnergy() / 100.0 * barLen);
-        for (int i = 0; i < barLen; i++) hud.append(i < filled ? "|" : " ");
-        hud.append("] ").append(d.getEnergy()).append("% 修:").append(d.getCultivation()).append(" 环:");
-        for (int i = 1; i <= 10; i++) if (d.isUnlocked(i)) hud.append(d.isActive(i) ? "(" : "[").append(BuffNames.NAME[i].charAt(0)).append(d.isActive(i) ? ")" : "]");
-        client.player.sendMessage(Text.literal(hud.toString()), true);
-    });
-}
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.player == null || client.world == null) return;
+            PlayerBuffData d = PlayerBuffData.getClient();
+            while (refillKey.wasPressed()) ClientPlayNetworking.send(XianHuanBianMod.REFILL_ENERGY, PacketByteBufs.empty());
+            while (infoKey.wasPressed()) { client.setScreen(new AttributeScreen(d)); }
+            while (meditateKey.wasPressed()) {
+                if (d.isMeditating()) ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_STOP, PacketByteBufs.empty());
+                else ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_START, PacketByteBufs.empty());
+            }
+            for (int i = 1; i <= 10; i++) {
+                KeyBinding kb = singleKeys.get(i);
+                if (kb != null && kb.wasPressed()) ClientPlayNetworking.send(new Identifier("xianhuanbian", "toggle_" + i), PacketByteBufs.empty());
+            }
+            for (int i = 1; i <= 12; i++) if (d.isActive(i)) spawnPlayerRing(client, client.player, i, COLORS[i]);
 
-private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
+            if (client.options.attackKey.wasPressed()) {
+                ClientPlayNetworking.send(XianHuanBianMod.LEFT_CLICK_COUNT, PacketByteBufs.empty());
+            }
+
+            StringBuilder hud = new StringBuilder("气 [");
+            int barLen = 20, filled = (int) (d.getEnergy() / 100.0 * barLen);
+            for (int i = 0; i < barLen; i++) hud.append(i < filled ? "|" : " ");
+            hud.append("] ").append(d.getEnergy()).append("% 修:").append(d.getCultivation()).append(" 环:");
+            for (int i = 1; i <= 10; if (d.isUnlocked(i)) hud.append(d.isActive(i) ? "(" : "[").append(BuffNames.NAME[i].charAt(0)).append(d.isActive(i) ? ")" : "]");
+            client.player.sendMessage(Text.literal(hud.toString()), true);
+        });
+    }
+    private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
     double y = pl.getY() + 1.0, rad = 0.5 + (id - 1) * 0.08;
     var effect = new DustParticleEffect(col, 0.2f);
     for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); cl.world.addParticle(effect, pl.getX() + rad * Math.cos(a), y, pl.getZ() + rad * Math.sin(a), 0, 0, 0); }
@@ -186,6 +190,3 @@ private void spawnHorizontalRing(MinecraftClient cl, LivingEntity target) {
         public boolean shouldPause() { return false; }
     }
 }
-        ClientPlayNetworking.registerGlobalReceiver(XianHuanBianMod.SYNC_BUFFS, (client, handler, buf, responseSender) -> {
-            var tag = buf.readNbt(); if (tag != null) PlayerBuffData.updateClientFromNbt(tag);
-        });
