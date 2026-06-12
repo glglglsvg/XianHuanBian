@@ -8,11 +8,11 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.particle.DustParticleEffect;
@@ -130,7 +130,7 @@ public class XianHuanBianClient implements ClientModInitializer {
         }
     }
 
-    // 属性页面内部类
+    // 修正后的属性页面（使用 DrawContext）
     private static class AttributeScreen extends Screen {
         private final PlayerBuffData data;
         private ButtonWidget strButton, spdButton, vitButton;
@@ -176,17 +176,17 @@ public class XianHuanBianClient implements ClientModInitializer {
         }
 
         private void updateButtons() {
-                        strButton.setMessage(Text.literal("力量+ [" + data.getStrength() + "]"));
+            strButton.setMessage(Text.literal("力量+ [" + data.getStrength() + "]"));
             spdButton.setMessage(Text.literal("速度+ [" + data.getSpeed() + "]"));
             vitButton.setMessage(Text.literal("生命力+ [" + data.getVitality() + "]"));
         }
 
         @Override
-        public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-            this.renderBackground(matrices);
-            drawCenteredText(matrices, this.textRenderer, Text.literal("可用点数: " + data.getAvailablePoints()), this.width / 2, 20, 0xFFFFFF);
-            drawCenteredText(matrices, this.textRenderer, Text.literal("力量: " + data.getStrength() + "  速度: " + data.getSpeed() + "  生命力: " + data.getVitality()), this.width / 2, 40, 0xAAAAAA);
-            super.render(matrices, mouseX, mouseY, delta);
+        public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+            this.renderBackground(context);
+            context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("可用点数: " + data.getAvailablePoints()), this.width / 2, 20, 0xFFFFFF);
+            context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("力量: " + data.getStrength() + "  速度: " + data.getSpeed() + "  生命力: " + data.getVitality()), this.width / 2, 40, 0xAAAAAA);
+            super.render(context, mouseX, mouseY, delta);
         }
 
         @Override
