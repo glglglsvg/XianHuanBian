@@ -46,7 +46,6 @@ public class PlayerBuffData {
         }
     }
 
-    // 改回 ServerPlayerEntity
     public static PlayerBuffData get(ServerPlayerEntity player) {
         NbtCompound root = player.getPersistentData();
         NbtCompound tag = root.getCompound("xianhuanbian");
