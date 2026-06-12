@@ -5,6 +5,9 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import java.util.*;
 
 public class PlayerBuffData {
+    // 服务端内存存储（UUID -> 数据）
+    private static final Map<UUID, PlayerBuffData> SERVER_DATA = new HashMap<>();
+    // 客户端缓存（供渲染用）
     private static PlayerBuffData CLIENT_CACHE = new PlayerBuffData();
 
     private boolean[] unlocked = new boolean[13];
@@ -46,15 +49,14 @@ public class PlayerBuffData {
         }
     }
 
+    // 从服务端静态Map中获取（不存在则创建）
     public static PlayerBuffData get(ServerPlayerEntity player) {
-        NbtCompound root = player.getPersistentData();
-        NbtCompound tag = root.getCompound("xianhuanbian");
-        return fromNbt(tag);
+        return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> new PlayerBuffData());
     }
 
+    // 保存到静态Map（实际上已在Map中，保留方法以兼容）
     public void save(ServerPlayerEntity player) {
-        NbtCompound root = player.getPersistentData();
-        root.put("xianhuanbian", toNbt());
+        SERVER_DATA.put(player.getUuid(), this);
     }
     // --- getter/setter ---
 public boolean isUnlocked(int id) { return unlocked[id]; }
