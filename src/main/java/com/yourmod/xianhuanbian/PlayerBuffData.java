@@ -22,42 +22,37 @@ public class PlayerBuffData {
     private long playTicks = 0;
     private double globalAttack = 0;
     private int maxHealthBonus = 0;
-private int killHealAmount = 0;
-private double killMultiplier = 1.0;
-private int regenLevel = 0;
+    private int killHealAmount = 0;
+    private double killMultiplier = 1.0;
+    private int regenLevel = 0;
 
-private int availablePoints = 0;
-private int strength = 0;
-private int speed = 0;
-private int vitality = 0;
-private int killCounter = 0;
-private boolean isMeditating = false;
-private int meditateTimer = 0;
+    private int availablePoints = 0;
+    private int strength = 0;
+    private int speed = 0;
+    private int vitality = 0;
+    private int killCounter = 0;
+    private boolean isMeditating = false;
+    private int meditateTimer = 0;
 
-private boolean[] behaviorDone = new boolean[11];
-private int eatCount = 0, leftClickCount = 0, itemKillCount = 0;
-private double walkDist = 0;
-private int breakCount = 0, plantCount = 0, placeCount = 0, craftToolCount = 0, fireWaterCount = 0;
+    private boolean[] behaviorDone = new boolean[11];
+    private int eatCount = 0, leftClickCount = 0, itemKillCount = 0;
+    private double walkDist = 0;
+    private int breakCount = 0, plantCount = 0, placeCount = 0, craftToolCount = 0, fireWaterCount = 0;
 
-public PlayerBuffData() {
-    Arrays.fill(chance, 0.000001f);
-    for (int i = 1; i <= 12; i++) {
-        levels[i] = 1;
-        upgradeCost[i] = (i == 1) ? 200 : (long) Math.pow(200, i);
+    public PlayerBuffData() {
+        Arrays.fill(chance, 0.000001f);
+        for (int i = 1; i <= 12; i++) {
+            levels[i] = 1;
+            upgradeCost[i] = (i == 1) ? 200 : (long) Math.pow(200, i);
+        }
     }
-}
 
-public static PlayerBuffData get(ServerPlayerEntity player) {
-    return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> new PlayerBuffData());
-}
+    public static PlayerBuffData get(ServerPlayerEntity player) {
+        return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> new PlayerBuffData());
+    }
 
-public void save(ServerPlayerEntity player) {
-    SERVER_DATA.put(player.getUuid(), this);
-}
-
-public static void reset(ServerPlayerEntity player) {
-    SERVER_DATA.remove(player.getUuid());
-}
+    public void save(ServerPlayerEntity player) { SERVER_DATA.put(player.getUuid(), this); }
+    public static void reset(ServerPlayerEntity player) { SERVER_DATA.remove(player.getUuid()); }
     public boolean isUnlocked(int id) { return unlocked[id]; }
 public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
 public boolean isActive(int id) { return active[id]; }
@@ -79,7 +74,7 @@ public void setCultivation(long v) { cultivation = v; }
 public int getEnergy() { return energy; }
 public void setEnergy(int v) { energy = Math.max(0, Math.min(maxEnergy, v)); }
 public void addEnergy(int v) { setEnergy(energy + v); }
-    public int getMaxEnergy() { return maxEnergy; }
+public int getMaxEnergy() { return maxEnergy; }
 public void setMaxEnergy(int v) { maxEnergy = v; }
 public float getEnergyCostPerTick() { return energyCostPerTick; }
 public void setEnergyCostPerTick(float v) { energyCostPerTick = v; }
@@ -124,7 +119,8 @@ public void addCraftTool() { if (!hasAnyRing() && !behaviorDone[8]) { craftToolC
 public void addFireWater() { if (!hasAnyRing() && !behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= 28) setBehaviorDone(9); } }
 public void checkExp(float level) { if (!hasAnyRing() && !behaviorDone[10] && level >= 2.0f) setBehaviorDone(10); }
 public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
-    public void applyBehaviorChances() { for (int i = 1; i <= 10; i++) { if (behaviorDone[i]) chance[i] = 0.1f + 0.1f; else chance[i] = 0.1f; } }
+
+public void applyBehaviorChances() { for (int i = 1; i <= 10; i++) { if (behaviorDone[i]) chance[i] = 0.1f + 0.1f; else chance[i] = 0.1f; } }
 public void resetChancesForHardMode() { Arrays.fill(chance, 0.000001f); adjustChances(); }
 public float getEffectiveChance(int id, boolean isMeditating) {
     float base = chance[id]; if (isMeditating) base *= 3.0f;
@@ -139,6 +135,12 @@ public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f,
 private int calcDuration(int level, int baseMin) { if (level >= 10) return 0; return baseMin * 20 + (level - 1) * (baseMin / 9) * 20; }
 public void activate(int id, int baseMin) { setActive(id, true); if (baseMin == 0) setDuration(id, 0); else setDuration(id, calcDuration(getLevel(id), baseMin)); }
 public void onLevelUp(int id) { upgradeEnergy(); if (maxDurations[id] != 0) { int lv = getLevel(id); if (lv >= 10) setDuration(id, 0); else setDuration(id, calcDuration(lv, 60)); } }
+
+public float getCurrentChance(int id) {
+    float base = 0.00001f;
+    if (behaviorDone[id]) base += 0.1f;
+    return base;
+}
     public static PlayerBuffData getClient() { return CLIENT_CACHE; }
 public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
 
