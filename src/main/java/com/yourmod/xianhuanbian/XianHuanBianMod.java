@@ -30,14 +30,15 @@ public class XianHuanBianMod implements ModInitializer {
     public static final Identifier ADD_VIT = new Identifier(MODID, "add_vit");
 
     private final Map<UUID, Vec3d> lastPositions = new HashMap<>();
+
     private static final Set<Block> ORE_BLOCKS = new HashSet<>(Arrays.asList(
-    Blocks.COAL_ORE, Blocks.DEEPSLATE_COAL_ORE, Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE,
-    Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE, Blocks.GOLD_ORE, Blocks.DEEPSLATE_GOLD_ORE,
-    Blocks.REDSTONE_ORE, Blocks.DEEPSLATE_REDSTONE_ORE, Blocks.LAPIS_ORE, Blocks.DEEPSLATE_LAPIS_ORE,
-    Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE, Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE,
-    Blocks.NETHER_QUARTZ_ORE, Blocks.NETHER_GOLD_ORE, Blocks.ANCIENT_DEBRIS
-));
-    @Override
+        Blocks.COAL_ORE, Blocks.DEEPSLATE_COAL_ORE, Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE,
+        Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE, Blocks.GOLD_ORE, Blocks.DEEPSLATE_GOLD_ORE,
+        Blocks.REDSTONE_ORE, Blocks.DEEPSLATE_REDSTONE_ORE, Blocks.LAPIS_ORE, Blocks.DEEPSLATE_LAPIS_ORE,
+        Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE, Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE,
+        Blocks.NETHER_QUARTZ_ORE, Blocks.NETHER_GOLD_ORE, Blocks.ANCIENT_DEBRIS
+    ));
+   @Override
 public void onInitialize() {
     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
         ToggleBuffCommand.register(dispatcher);
@@ -57,7 +58,23 @@ public void onInitialize() {
             if (last != null) data.addWalkDist(cur.distanceTo(last));
             lastPositions.put(id, cur);
             data.checkExp(player.experienceLevel);
-            if (!data.hasAnyRing()) BuffEventHandler.tryUnlockFirstRing(player, data);
+
+            if (!data.hasAnyRing()) {
+                for (int i = 1; i <= 10; i++) {
+                    if (player.getRandom().nextFloat() < data.getCurrentChance(i)) {
+                        data.setUnlocked(i, true); data.setActive(i, true); data.setLevel(i, 1);
+                        if (i == 1) { data.setMaxHealthBonus(5); data.setRegenLevel(1); BuffEventHandler.applyHealth(player, data); }
+                        if (i == 10) { data.setKillHealAmount(5); data.setKillMultiplier(0.5); }
+                        if (i == 5) data.setDuration(i, 60 * 20);
+                        double newAttack = Math.pow(data.getGlobalAttack() + 2, 1.5);
+                        data.setGlobalAttack(newAttack);
+                        data.onLevelUp(i);
+                        data.resetChancesForHardMode();
+                        player.sendMessage(net.minecraft.text.Text.literal("你顿悟了" + BuffNames.NAME[i] + "之力！"), false);
+                        break;
+                    }
+                }
+            }
             data.save(player);
             if (player.age % 100 == 0) syncToClient(player, data);
         }
@@ -77,7 +94,8 @@ UseItemCallback.EVENT.register((player, world, hand) -> {
     }
     return TypedActionResult.pass(player.getStackInHand(hand));
 });
-    ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+
+ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
     if (source.getAttacker() instanceof ServerPlayerEntity sp) {
         PlayerBuffData data = PlayerBuffData.get(sp);
         if (!sp.getMainHandStack().isEmpty()) data.addItemKill();
@@ -87,8 +105,7 @@ UseItemCallback.EVENT.register((player, world, hand) -> {
         data.save(sp); syncToClient(sp, data);
     }
 });
-
-PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
+  PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
     if (!world.isClient && player instanceof ServerPlayerEntity sp) {
         PlayerBuffData data = PlayerBuffData.get(sp);
         data.addBreak();
@@ -105,7 +122,8 @@ UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
     }
     return ActionResult.PASS;
 });
-    ServerPlayNetworking.registerGlobalReceiver(MEDITATE_START, (server, player, handler, buf, responseSender) -> {
+
+ServerPlayNetworking.registerGlobalReceiver(MEDITATE_START, (server, player, handler, buf, responseSender) -> {
     server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.setMeditating(true); data.setMeditateTimer(0); player.sendMessage(net.minecraft.text.Text.literal("开始修炼..."), true); });
 });
 ServerPlayNetworking.registerGlobalReceiver(MEDITATE_STOP, (server, player, handler, buf, responseSender) -> {
@@ -124,20 +142,23 @@ ServerPlayNetworking.registerGlobalReceiver(REQUEST_INFO, (server, player, handl
         for (int i=1;i<=10;i++) if (!data.isUnlocked(i)) sb.append(BuffNames.NAME[i].charAt(0)).append(": ").append(String.format("%.4f%%", data.getChance(i)*100)).append("\n");
         player.sendMessage(net.minecraft.text.Text.literal(sb.toString()), false);
     });
-});
-ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addEnergy(30); data.save(player); player.sendMessage(net.minecraft.text.Text.literal("你凝神聚气，恢复了30点能量"), true); });
-});
-    ServerPlayNetworking.registerGlobalReceiver(ADD_STR, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setStrength(data.getStrength() + 1); data.save(player); syncToClient(player, data); } });
-});
-ServerPlayNetworking.registerGlobalReceiver(ADD_SPD, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setSpeed(data.getSpeed() + 1); data.save(player); syncToClient(player, data); } });
-});
-ServerPlayNetworking.registerGlobalReceiver(ADD_VIT, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setVitality(data.getVitality() + 1); data.save(player); syncToClient(player, data); } });
-});
-            for (int i = 1; i <= 10; i++) {
+});  
+
+            ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addEnergy(30); data.save(player); player.sendMessage(net.minecraft.text.Text.literal("你凝神聚气，恢复了30点能量"), true); });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(ADD_STR, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setStrength(data.getStrength() + 1); data.save(player); syncToClient(player, data); } });
+        });
+        ServerPlayNetworking.registerGlobalReceiver(ADD_SPD, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setSpeed(data.getSpeed() + 1); data.save(player); syncToClient(player, data); } });
+        });
+        ServerPlayNetworking.registerGlobalReceiver(ADD_VIT, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setVitality(data.getVitality() + 1); data.save(player); syncToClient(player, data); } });
+        });
+
+        for (int i = 1; i <= 10; i++) {
             final int id = i;
             Identifier toggleId = new Identifier(MODID, "toggle_" + id);
             ServerPlayNetworking.registerGlobalReceiver(toggleId, (server, player, handler, buf, responseSender) -> {
@@ -158,3 +179,5 @@ ServerPlayNetworking.registerGlobalReceiver(ADD_VIT, (server, player, handler, b
         var buf = PacketByteBufs.create(); buf.writeNbt(data.toNbt()); ServerPlayNetworking.send(player, SYNC_BUFFS, buf);
     }
 }
+    
+    
