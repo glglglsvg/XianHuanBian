@@ -62,6 +62,7 @@ public class BuffEventHandler {
             d.setMeditateTimer(0);
             d.addAvailablePoints(1);  // 每次固定获得1点
         }
+        p.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100, 0, false, false));
         p.setPose(net.minecraft.entity.EntityPose.SITTING);
     }
             applySpeedAttribute(p, d);
