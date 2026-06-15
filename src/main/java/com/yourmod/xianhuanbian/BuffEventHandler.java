@@ -133,9 +133,10 @@ private static void applyAbsorption(ServerPlayerEntity p, PlayerBuffData d) {
         case 2: p.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, d.getDuration(id) > 0 ? d.getDuration(id) : 100, lv - 1, false, false)); break;
         case 4: p.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, d.getDuration(id) > 0 ? d.getDuration(id) : 100, lv - 1, false, false)); break;
         case 5:
-            p.getAbilities().allowFlying = true;
-            p.getAbilities().flying = true;
-            p.sendAbilitiesUpdate();
+                p.getAbilities().mayFly = true;
+                p.getAbilities().allowFlying = true;
+                p.getAbilities().flying = true;
+                p.sendAbilitiesUpdate();
             break;
         case 6: p.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, d.getDuration(id) > 0 ? d.getDuration(id) : 100, 0, false, false)); break;
         case 7:
