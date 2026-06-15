@@ -46,34 +46,32 @@ public void onInitialize() {
     });
 
     ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-        PlayerBuffData.reset(handler.player);
+        ServerPlayerEntity player = handler.player;
+        PlayerBuffData data = PlayerBuffData.getOrCreate(player);
+        syncToClient(player, data);
+    });
+
+    ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+        ServerPlayerEntity player = handler.player;
+        PlayerBuffData data = PlayerBuffData.SERVER_DATA.remove(player.getUuid());
+        if (data != null) {
+            PlayerDataPersistence.savePlayerData(player, data);
+        }
     });
 
     ServerTickEvents.END_SERVER_TICK.register(server -> {
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             PlayerBuffData data = PlayerBuffData.get(player);
             BuffEventHandler.applyActiveBuffs(player, data);
-            UUID id = player.getUuid(); Vec3d cur = player.getPos();
+            UUID id = player.getUuid();
+            Vec3d cur = player.getPos();
             Vec3d last = lastPositions.get(id);
             if (last != null) data.addWalkDist(cur.distanceTo(last));
             lastPositions.put(id, cur);
             data.checkExp(player.experienceLevel);
 
             if (!data.hasAnyRing()) {
-                for (int i = 1; i <= 10; i++) {
-                    if (player.getRandom().nextFloat() < data.getCurrentChance(i)) {
-                        data.setUnlocked(i, true); data.setActive(i, true); data.setLevel(i, 1);
-                        if (i == 1) { data.setMaxHealthBonus(5); data.setRegenLevel(1); BuffEventHandler.applyHealth(player, data); }
-                        if (i == 10) { data.setKillHealAmount(5); data.setKillMultiplier(0.5); }
-                        if (i == 5) data.setDuration(i, 60 * 20);
-                        double newAttack = Math.pow(data.getGlobalAttack() + 2, 1.5);
-                        data.setGlobalAttack(newAttack);
-                        data.onLevelUp(i);
-                        data.resetChancesForHardMode();
-                        player.sendMessage(net.minecraft.text.Text.literal("你顿悟了" + BuffNames.NAME[i] + "之力！"), false);
-                        break;
-                    }
-                }
+                BuffEventHandler.tryUnlockFirstRing(player, data);
             }
             data.save(player);
             if (player.age % 100 == 0) syncToClient(player, data);
@@ -90,35 +88,49 @@ UseItemCallback.EVENT.register((player, world, hand) -> {
         if (stack.isFood()) data.addEat();
         else if (stack.getItem() instanceof FlintAndSteelItem || stack.getItem() instanceof BucketItem || stack.getItem() instanceof SplashPotionItem) data.addFireWater();
         else if (stack.getItem() instanceof BlockItem) data.addPlace();
-        data.save(sp); syncToClient(sp, data);
+        data.save(sp);
+        syncToClient(sp, data);
     }
     return TypedActionResult.pass(player.getStackInHand(hand));
 });
-
-ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+    ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
     if (source.getAttacker() instanceof ServerPlayerEntity sp) {
         PlayerBuffData data = PlayerBuffData.get(sp);
         if (!sp.getMainHandStack().isEmpty()) data.addItemKill();
         data.checkExp(sp.experienceLevel);
-        BuffEventHandler.attackEntity(sp, data, entity);   // 确保调用 attackEntity（含第五环屏障）
         BuffEventHandler.onKillEntity(sp, data, entity);
         BuffEventHandler.processActivity(sp, data, 0.00004f, 30, data.isMeditating());
-        data.save(sp); syncToClient(sp, data);
+        data.save(sp);
+        syncToClient(sp, data);
     }
 });
-    PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
+
+AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+    if (!world.isClient && player instanceof ServerPlayerEntity sp && entity instanceof LivingEntity target) {
+        PlayerBuffData data = PlayerBuffData.get(sp);
+        BuffEventHandler.attackEntity(sp, data, target);
+        data.save(sp);
+        syncToClient(sp, data);
+    }
+    return ActionResult.PASS;
+});
+
+PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
     if (!world.isClient && player instanceof ServerPlayerEntity sp) {
         PlayerBuffData data = PlayerBuffData.get(sp);
         data.addBreak();
         if (data.hasAnyRing() && ORE_BLOCKS.contains(state.getBlock())) BuffEventHandler.processActivity(sp, data, 0.00001f, 10, data.isMeditating());
-        data.save(sp); syncToClient(sp, data);
+        data.save(sp);
+        syncToClient(sp, data);
     }
 });
-
 UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
     if (!world.isClient && player instanceof ServerPlayerEntity sp) {
         if (player.getStackInHand(hand).getItem() instanceof AliasedBlockItem) {
-            PlayerBuffData data = PlayerBuffData.get(sp); data.addPlant(); data.save(sp); syncToClient(sp, data);
+            PlayerBuffData data = PlayerBuffData.get(sp);
+            data.addPlant();
+            data.save(sp);
+            syncToClient(sp, data);
         }
     }
     return ActionResult.PASS;
@@ -147,16 +159,15 @@ ServerPlayNetworking.registerGlobalReceiver(REQUEST_INFO, (server, player, handl
 ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
     server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addEnergy(30); data.save(player); player.sendMessage(net.minecraft.text.Text.literal("你凝神聚气，恢复了30点能量"), true); });
 });
-            ServerPlayNetworking.registerGlobalReceiver(ADD_STR, (server, player, handler, buf, responseSender) -> {
-            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setStrength(data.getStrength() + 1); data.save(player); syncToClient(player, data); } });
-        });
-        ServerPlayNetworking.registerGlobalReceiver(ADD_SPD, (server, player, handler, buf, responseSender) -> {
-            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setSpeed(data.getSpeed() + 1); data.save(player); syncToClient(player, data); } });
-        });
-        ServerPlayNetworking.registerGlobalReceiver(ADD_VIT, (server, player, handler, buf, responseSender) -> {
-            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setVitality(data.getVitality() + 1); data.save(player); syncToClient(player, data); } });
-        });
-
+ServerPlayNetworking.registerGlobalReceiver(ADD_STR, (server, player, handler, buf, responseSender) -> {
+    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setStrength(data.getStrength() + 1); data.save(player); syncToClient(player, data); } });
+});
+ServerPlayNetworking.registerGlobalReceiver(ADD_SPD, (server, player, handler, buf, responseSender) -> {
+    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setSpeed(data.getSpeed() + 1); data.save(player); syncToClient(player, data); } });
+});
+ServerPlayNetworking.registerGlobalReceiver(ADD_VIT, (server, player, handler, buf, responseSender) -> {
+    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setVitality(data.getVitality() + 1); data.save(player); syncToClient(player, data); } });
+});
         for (int i = 1; i <= 10; i++) {
             final int id = i;
             Identifier toggleId = new Identifier(MODID, "toggle_" + id);
