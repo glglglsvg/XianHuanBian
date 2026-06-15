@@ -100,7 +100,7 @@ ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
         PlayerBuffData data = PlayerBuffData.get(sp);
         if (!sp.getMainHandStack().isEmpty()) data.addItemKill();
         data.checkExp(sp.experienceLevel);
-        BuffEventHandler.attackEntity(sp, data, entity);   // 确保调用 attackEntity
+        BuffEventHandler.attackEntity(sp, data, entity);   // 确保调用 attackEntity（含第五环屏障）
         BuffEventHandler.onKillEntity(sp, data, entity);
         BuffEventHandler.processActivity(sp, data, 0.00004f, 30, data.isMeditating());
         data.save(sp); syncToClient(sp, data);
@@ -138,7 +138,7 @@ ServerPlayNetworking.registerGlobalReceiver(REQUEST_INFO, (server, player, handl
         sb.append("气环数量: ").append(count).append("/10\n");
         for (int i=1;i<=10;i++) if (data.isUnlocked(i)) sb.append(BuffNames.NAME[i]).append(": Lv").append(data.getLevel(i)).append("\n");
         sb.append("可用点数: ").append(data.getAvailablePoints()).append("\n");
-        sb.append("力量: ").append(data.getStrength()).append(" | 速度: ").append(data.getSpeed()).append(" | 生命力: ").append(data.getVitality()).append("\n");
+        sb.append("力量: ").append(data.getStrength()).append(" | 速度: ").append(data.getSpeed()).append(" | 抗性: ").append(data.getVitality()).append("\n");
         sb.append("缘分:\n");
         for (int i=1;i<=10;i++) if (!data.isUnlocked(i)) sb.append(BuffNames.NAME[i].charAt(0)).append(": ").append(String.format("%.4f%%", data.getChance(i)*100)).append("\n");
         player.sendMessage(net.minecraft.text.Text.literal(sb.toString()), false);
