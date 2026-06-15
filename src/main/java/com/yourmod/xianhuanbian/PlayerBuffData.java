@@ -40,19 +40,29 @@ public class PlayerBuffData {
     private int breakCount = 0, plantCount = 0, placeCount = 0, craftToolCount = 0, fireWaterCount = 0;
 
     public PlayerBuffData() {
-        Arrays.fill(chance, 0.000001f);
+        Arrays.fill(chance, 0.0f);
         for (int i = 1; i <= 12; i++) {
             levels[i] = 1;
             upgradeCost[i] = (i == 1) ? 200 : (long) Math.pow(200, i);
         }
     }
-
     public static PlayerBuffData get(ServerPlayerEntity player) {
-        return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> new PlayerBuffData());
-    }
+    return getOrCreate(player);
+}
 
-    public void save(ServerPlayerEntity player) { SERVER_DATA.put(player.getUuid(), this); }
-    public static void reset(ServerPlayerEntity player) { SERVER_DATA.remove(player.getUuid()); }
+public static PlayerBuffData getOrCreate(ServerPlayerEntity player) {
+    return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> PlayerDataPersistence.loadPlayerData(player));
+}
+
+public void save(ServerPlayerEntity player) {
+    SERVER_DATA.put(player.getUuid(), this);
+}
+
+public static void reset(ServerPlayerEntity player) {
+    SERVER_DATA.remove(player.getUuid());
+    NbtCompound modData = PlayerDataPersistence.getModData(player);
+    modData.copyFrom(new NbtCompound());
+}
     public boolean isUnlocked(int id) { return unlocked[id]; }
 public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
 public boolean isActive(int id) { return active[id]; }
@@ -106,9 +116,9 @@ public boolean isMeditating() { return isMeditating; }
 public void setMeditating(boolean v) { isMeditating = v; }
 public int getMeditateTimer() { return meditateTimer; }
 public void setMeditateTimer(int v) { meditateTimer = v; }
-    public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
+public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
 public void setBehaviorDone(int id) { behaviorDone[id] = true; }
-public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
+    public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
 public void addLeftClick() { if (!hasAnyRing() && !behaviorDone[2]) { leftClickCount++; if (leftClickCount >= 100) setBehaviorDone(2); } }
 public void addItemKill() { if (!hasAnyRing() && !behaviorDone[3]) { itemKillCount++; if (itemKillCount >= 15) setBehaviorDone(3); } }
 public void addWalkDist(double d) { if (!hasAnyRing() && !behaviorDone[4]) { walkDist += d; if (walkDist >= 150) setBehaviorDone(4); } }
@@ -119,16 +129,25 @@ public void addCraftTool() { if (!hasAnyRing() && !behaviorDone[8]) { craftToolC
 public void addFireWater() { if (!hasAnyRing() && !behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= 28) setBehaviorDone(9); } }
 public void checkExp(float level) { if (!hasAnyRing() && !behaviorDone[10] && level >= 2.0f) setBehaviorDone(10); }
 public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
+    public void applyBehaviorChances() {
+    for (int i = 1; i <= 10; i++) {
+        if (behaviorDone[i]) chance[i] = 0.2f;
+        else chance[i] = 0.0f;
+    }
+}
 
-public void applyBehaviorChances() { for (int i = 1; i <= 10; i++) { if (behaviorDone[i]) chance[i] = 0.1f + 0.1f; else chance[i] = 0.1f; } }
-public void resetChancesForHardMode() { Arrays.fill(chance, 0.000001f); adjustChances(); }
+public void resetChancesForHardMode() { Arrays.fill(chance, 0.0f); adjustChances(); }
 public float getEffectiveChance(int id, boolean isMeditating) {
-    float base = chance[id]; if (isMeditating) base *= 3.0f;
-    int unlockedCount = 0; for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
-    if (unlockedCount >= 2) base *= 0.1f; return Math.min(base, 1.0f);
+    float base = chance[id];
+    if (isMeditating) base *= 3.0f;
+    int unlockedCount = 0;
+    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+    if (unlockedCount >= 2) base *= 0.1f;
+    return Math.min(base, 1.0f);
 }
 public void adjustChances() {
-    int unlockedCount = 0; for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+    int unlockedCount = 0;
+    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
     if (unlockedCount >= 2) for (int i = 1; i <= 10; i++) if (!unlocked[i]) chance[i] = 0.000001f / unlockedCount;
 }
 public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f); energy = Math.min(energy, maxEnergy); }
@@ -141,36 +160,37 @@ public float getCurrentChance(int id) {
     if (behaviorDone[id]) base += 0.1f;
     return base;
 }
-    public static PlayerBuffData getClient() { return CLIENT_CACHE; }
-public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
+        public static PlayerBuffData getClient() { return CLIENT_CACHE; }
+    public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
 
-public static PlayerBuffData fromNbt(NbtCompound tag) {
-    PlayerBuffData data = new PlayerBuffData();
-    for (int i = 1; i <= 12; i++) {
-        data.unlocked[i] = tag.getBoolean("unlocked" + i);
-        data.active[i] = tag.getBoolean("active" + i);
-        data.levels[i] = tag.getInt("level" + i);
-        data.durations[i] = tag.getInt("dur" + i);
-        data.maxDurations[i] = tag.getInt("maxDur" + i);
-        data.upgradeCost[i] = tag.getLong("cost" + i);
+    public static PlayerBuffData fromNbt(NbtCompound tag) {
+        PlayerBuffData data = new PlayerBuffData();
+        for (int i = 1; i <= 12; i++) {
+            data.unlocked[i] = tag.getBoolean("unlocked" + i);
+            data.active[i] = tag.getBoolean("active" + i);
+            data.levels[i] = tag.getInt("level" + i);
+            data.durations[i] = tag.getInt("dur" + i);
+            data.maxDurations[i] = tag.getInt("maxDur" + i);
+            data.upgradeCost[i] = tag.getLong("cost" + i);
+        }
+        for (int i = 1; i <= 10; i++) {
+            data.chance[i] = tag.getFloat("chance" + i);
+            data.behaviorDone[i] = tag.getBoolean("bdone" + i);
+        }
+        data.eatCount = tag.getInt("eat"); data.leftClickCount = tag.getInt("lclick"); data.itemKillCount = tag.getInt("ikill");
+        data.walkDist = tag.getDouble("walk"); data.breakCount = tag.getInt("break"); data.plantCount = tag.getInt("plant");
+        data.placeCount = tag.getInt("place"); data.craftToolCount = tag.getInt("craft"); data.fireWaterCount = tag.getInt("fire");
+        data.cultivation = tag.getLong("cultivation"); data.energy = tag.getInt("energy"); data.maxEnergy = tag.getInt("maxEnergy");
+        data.energyCostPerTick = tag.getFloat("energyCost"); data.playTicks = tag.getLong("playTicks");
+        data.globalAttack = tag.getDouble("globalAttack"); data.maxHealthBonus = tag.getInt("maxHealth");
+        data.killHealAmount = tag.getInt("killHeal"); data.killMultiplier = tag.getDouble("killMult"); data.regenLevel = tag.getInt("regen");
+        data.availablePoints = tag.getInt("points"); data.strength = tag.getInt("str"); data.speed = tag.getInt("spd");
+        data.vitality = tag.getInt("vit"); data.killCounter = tag.getInt("kills"); data.isMeditating = tag.getBoolean("med");
+        data.meditateTimer = tag.getInt("medTimer");
+        return data;
     }
-    for (int i = 1; i <= 10; i++) {
-        data.chance[i] = tag.getFloat("chance" + i);
-        data.behaviorDone[i] = tag.getBoolean("bdone" + i);
-    }
-    data.eatCount = tag.getInt("eat"); data.leftClickCount = tag.getInt("lclick"); data.itemKillCount = tag.getInt("ikill");
-    data.walkDist = tag.getDouble("walk"); data.breakCount = tag.getInt("break"); data.plantCount = tag.getInt("plant");
-    data.placeCount = tag.getInt("place"); data.craftToolCount = tag.getInt("craft"); data.fireWaterCount = tag.getInt("fire");
-    data.cultivation = tag.getLong("cultivation"); data.energy = tag.getInt("energy"); data.maxEnergy = tag.getInt("maxEnergy");
-    data.energyCostPerTick = tag.getFloat("energyCost"); data.playTicks = tag.getLong("playTicks");
-    data.globalAttack = tag.getDouble("globalAttack"); data.maxHealthBonus = tag.getInt("maxHealth");
-    data.killHealAmount = tag.getInt("killHeal"); data.killMultiplier = tag.getDouble("killMult"); data.regenLevel = tag.getInt("regen");
-    data.availablePoints = tag.getInt("points"); data.strength = tag.getInt("str"); data.speed = tag.getInt("spd");
-    data.vitality = tag.getInt("vit"); data.killCounter = tag.getInt("kills"); data.isMeditating = tag.getBoolean("med");
-    data.meditateTimer = tag.getInt("medTimer");
-    return data;
-}
-        public NbtCompound toNbt() {
+
+    public NbtCompound toNbt() {
         NbtCompound tag = new NbtCompound();
         for (int i = 1; i <= 12; i++) {
             tag.putBoolean("unlocked" + i, unlocked[i]); tag.putBoolean("active" + i, active[i]);
