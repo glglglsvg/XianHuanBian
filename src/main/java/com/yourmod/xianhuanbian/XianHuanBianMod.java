@@ -38,7 +38,7 @@ public class XianHuanBianMod implements ModInitializer {
         Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE, Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE,
         Blocks.NETHER_QUARTZ_ORE, Blocks.NETHER_GOLD_ORE, Blocks.ANCIENT_DEBRIS
     ));
-   @Override
+    @Override
 public void onInitialize() {
     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
         ToggleBuffCommand.register(dispatcher);
@@ -100,12 +100,13 @@ ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
         PlayerBuffData data = PlayerBuffData.get(sp);
         if (!sp.getMainHandStack().isEmpty()) data.addItemKill();
         data.checkExp(sp.experienceLevel);
+        BuffEventHandler.attackEntity(sp, data, entity);   // 确保调用 attackEntity
         BuffEventHandler.onKillEntity(sp, data, entity);
         BuffEventHandler.processActivity(sp, data, 0.00004f, 30, data.isMeditating());
         data.save(sp); syncToClient(sp, data);
     }
 });
-  PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
+    PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
     if (!world.isClient && player instanceof ServerPlayerEntity sp) {
         PlayerBuffData data = PlayerBuffData.get(sp);
         data.addBreak();
@@ -142,13 +143,11 @@ ServerPlayNetworking.registerGlobalReceiver(REQUEST_INFO, (server, player, handl
         for (int i=1;i<=10;i++) if (!data.isUnlocked(i)) sb.append(BuffNames.NAME[i].charAt(0)).append(": ").append(String.format("%.4f%%", data.getChance(i)*100)).append("\n");
         player.sendMessage(net.minecraft.text.Text.literal(sb.toString()), false);
     });
-});  
-
-            ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
-            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addEnergy(30); data.save(player); player.sendMessage(net.minecraft.text.Text.literal("你凝神聚气，恢复了30点能量"), true); });
-        });
-
-        ServerPlayNetworking.registerGlobalReceiver(ADD_STR, (server, player, handler, buf, responseSender) -> {
+});
+ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
+    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addEnergy(30); data.save(player); player.sendMessage(net.minecraft.text.Text.literal("你凝神聚气，恢复了30点能量"), true); });
+});
+            ServerPlayNetworking.registerGlobalReceiver(ADD_STR, (server, player, handler, buf, responseSender) -> {
             server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setStrength(data.getStrength() + 1); data.save(player); syncToClient(player, data); } });
         });
         ServerPlayNetworking.registerGlobalReceiver(ADD_SPD, (server, player, handler, buf, responseSender) -> {
@@ -179,5 +178,3 @@ ServerPlayNetworking.registerGlobalReceiver(REQUEST_INFO, (server, player, handl
         var buf = PacketByteBufs.create(); buf.writeNbt(data.toNbt()); ServerPlayNetworking.send(player, SYNC_BUFFS, buf);
     }
 }
-    
-    
