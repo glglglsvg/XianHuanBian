@@ -23,6 +23,7 @@ import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFW;
 import java.util.HashMap;
 import java.util.Map;
+
 public class XianHuanBianClient implements ClientModInitializer {
     private static final Vector3f[] COLORS = new Vector3f[]{
         null, new Vector3f(1,0.2f,0.2f), new Vector3f(1,0.6f,0), new Vector3f(1,1,0),
@@ -41,7 +42,6 @@ public class XianHuanBianClient implements ClientModInitializer {
         GLFW.GLFW_KEY_P
     };
 
-    // 本地状态变量（用于持续显示文字）
     private static boolean localMeditating = false;
     private static boolean localRefilling = false;
     @Override
@@ -64,8 +64,8 @@ public void onInitializeClient() {
     });
 
     ClientPlayNetworking.registerGlobalReceiver(XianHuanBianMod.SYNC_BUFFS, (client, handler, buf, responseSender) -> {
-        var tag = buf.readNbt(); if (tag != null) PlayerBuffData.updateClientFromNbt(tag);
-        // 同步服务端状态到本地
+        var tag = buf.readNbt();
+        if (tag != null) PlayerBuffData.updateClientFromNbt(tag);
         PlayerBuffData d = PlayerBuffData.getClient();
         localMeditating = d.isMeditating();
     });
@@ -73,7 +73,6 @@ public void onInitializeClient() {
         if (client.player == null || client.world == null) return;
         PlayerBuffData d = PlayerBuffData.getClient();
 
-        // 移动检测：若玩家移动，自动取消修炼和回气
         boolean moving = client.player.input.movementForward != 0
                 || client.player.input.movementSideways != 0
                 || client.options.jumpKey.isPressed();
@@ -87,15 +86,13 @@ public void onInitializeClient() {
             }
         }
 
-        // 回气键：切换持续显示
         if (refillKey.wasPressed()) {
             localRefilling = !localRefilling;
             if (localRefilling) {
-                ClientPlayNetworking.send(XianHuanBianMod.REFILL_ENERGY, PacketByteBufs.empty()); // 仍为一次性回30能量
+                ClientPlayNetworking.send(XianHuanBianMod.REFILL_ENERGY, PacketByteBufs.empty());
             }
         }
 
-        // 修炼键：切换状态，发送开始/停止包
         if (meditateKey.wasPressed()) {
             localMeditating = !localMeditating;
             if (localMeditating) {
@@ -105,8 +102,9 @@ public void onInitializeClient() {
             }
         }
 
-        // 属性页面
-        if (infoKey.wasPressed()) { client.setScreen(new AttributeScreen(d)); }
+        if (infoKey.wasPressed()) {
+            client.setScreen(new AttributeScreen(d));
+        }
 
         for (int i = 1; i <= 10; i++) {
             KeyBinding kb = singleKeys.get(i);
@@ -114,14 +112,11 @@ public void onInitializeClient() {
         }
         for (int i = 1; i <= 12; i++) if (d.isActive(i)) spawnPlayerRing(client, client.player, i, COLORS[i]);
 
-        // 左键计数
         if (client.options.attackKey.wasPressed()) {
             ClientPlayNetworking.send(XianHuanBianMod.LEFT_CLICK_COUNT, PacketByteBufs.empty());
         }
 
-        // HUD：能量条、修为、环、状态文字
         StringBuilder hud = new StringBuilder();
-        // 显示状态文字
         if (localRefilling) {
             hud.append("【回气中】 ");
         }
@@ -144,8 +139,8 @@ public void onInitializeClient() {
     for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); cl.world.addParticle(effect, pl.getX() + rad * Math.cos(a), y, pl.getZ() + rad * Math.sin(a), 0, 0, 0); }
     var white = new DustParticleEffect(new Vector3f(1, 1, 1), 0.1f);
     for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); double x = pl.getX() + rad * Math.cos(a), z = pl.getZ() + rad * Math.sin(a); cl.world.addParticle(white, x, y, z, 0, 0, 0); }
-    }
-    private void spawnAttackRing(MinecraftClient cl, LivingEntity target) {
+}
+private void spawnAttackRing(MinecraftClient cl, LivingEntity target) {
     double y = target.getY() + target.getHeight() / 2.0, rad = 0.3;
     var color = new Vector3f(1, 0.5f, 0); var effect = new DustParticleEffect(color, PARTICLE_SIZE);
     for (int j = 0; j < PARTICLE_COUNT; j++) { double a = (2 * Math.PI / PARTICLE_COUNT) * j + (target.age * 0.1); cl.world.addParticle(effect, target.getX() + rad * Math.cos(a), y, target.getZ() + rad * Math.sin(a), 0, 0, 0); }
@@ -173,56 +168,57 @@ private void spawnHorizontalRing(MinecraftClient cl, LivingEntity target) {
         cl.world.addParticle(effect, x, y, z, Math.cos(angle)*0.02, 0, Math.sin(angle)*0.02);
     }
 }
-    private static class AttributeScreen extends Screen {
-    private final PlayerBuffData data;
-    private ButtonWidget strButton, spdButton, vitButton;
+       private static class AttributeScreen extends Screen {
+        private final PlayerBuffData data;
+        private ButtonWidget strButton, spdButton, vitButton;
 
-    protected AttributeScreen(PlayerBuffData data) {
-        super(Text.literal("仙环属性"));
-        this.data = data;
-    }
+        protected AttributeScreen(PlayerBuffData data) {
+            super(Text.literal("仙环属性"));
+            this.data = data;
+        }
 
-    @Override
-    protected void init() {
-        super.init();
-        int x = this.width / 2 - 100;
-        int y = 60;
-        strButton = this.addDrawableChild(ButtonWidget.builder(Text.literal("力量+ [" + data.getStrength() + "]"), button -> {
-            if (data.getAvailablePoints() > 0) {
-                ClientPlayNetworking.send(XianHuanBianMod.ADD_STR, PacketByteBufs.empty());
-                data.setAvailablePoints(data.getAvailablePoints() - 1);
-                data.setStrength(data.getStrength() + 1);
-                updateButtons();
-            }
-        }).dimensions(x, y, 200, 20).build());
+        @Override
+        protected void init() {
+            super.init();
+            int x = this.width / 2 - 100;
+            int y = 60;
+            strButton = this.addDrawableChild(ButtonWidget.builder(Text.literal("力量+ [" + data.getStrength() + "]"), button -> {
+                if (data.getAvailablePoints() > 0) {
+                    ClientPlayNetworking.send(XianHuanBianMod.ADD_STR, PacketByteBufs.empty());
+                    data.setAvailablePoints(data.getAvailablePoints() - 1);
+                    data.setStrength(data.getStrength() + 1);
+                    updateButtons();
+                }
+            }).dimensions(x, y, 200, 20).build());
 
-        y += 25;
-        spdButton = this.addDrawableChild(ButtonWidget.builder(Text.literal("速度+ [" + data.getSpeed() + "]"), button -> {
-            if (data.getAvailablePoints() > 0) {
-                ClientPlayNetworking.send(XianHuanBianMod.ADD_SPD, PacketByteBufs.empty());
-                data.setAvailablePoints(data.getAvailablePoints() - 1);
-                data.setSpeed(data.getSpeed() + 1);
-                updateButtons();
-            }
-        }).dimensions(x, y, 200, 20).build());
+            y += 25;
+            spdButton = this.addDrawableChild(ButtonWidget.builder(Text.literal("速度+ [" + data.getSpeed() + "]"), button -> {
+                if (data.getAvailablePoints() > 0) {
+                    ClientPlayNetworking.send(XianHuanBianMod.ADD_SPD, PacketByteBufs.empty());
+                    data.setAvailablePoints(data.getAvailablePoints() - 1);
+                    data.setSpeed(data.getSpeed() + 1);
+                    updateButtons();
+                }
+            }).dimensions(x, y, 200, 20).build());
 
-        y += 25;
-        vitButton = this.addDrawableChild(ButtonWidget.builder(Text.literal("抗性+ [" + data.getVitality() + "]"), button -> {
-            if (data.getAvailablePoints() > 0) {
-                ClientPlayNetworking.send(XianHuanBianMod.ADD_VIT, PacketByteBufs.empty());
-                data.setAvailablePoints(data.getAvailablePoints() - 1);
-                data.setVitality(data.getVitality() + 1);
-                updateButtons();
-            }
-        }).dimensions(x, y, 200, 20).build());
-    }
+            y += 25;
+            vitButton = this.addDrawableChild(ButtonWidget.builder(Text.literal("抗性+ [" + data.getVitality() + "]"), button -> {
+                if (data.getAvailablePoints() > 0) {
+                    ClientPlayNetworking.send(XianHuanBianMod.ADD_VIT, PacketByteBufs.empty());
+                    data.setAvailablePoints(data.getAvailablePoints() - 1);
+                    data.setVitality(data.getVitality() + 1);
+                    updateButtons();
+                }
+            }).dimensions(x, y, 200, 20).build());
+        }
 
-    private void updateButtons() {
-        strButton.setMessage(Text.literal("力量+ [" + data.getStrength() + "]"));
-        spdButton.setMessage(Text.literal("速度+ [" + data.getSpeed() + "]"));
-        vitButton.setMessage(Text.literal("抗性+ [" + data.getVitality() + "]"));
-    }
-                @Override
+        private void updateButtons() {
+            strButton.setMessage(Text.literal("力量+ [" + data.getStrength() + "]"));
+            spdButton.setMessage(Text.literal("速度+ [" + data.getSpeed() + "]"));
+            vitButton.setMessage(Text.literal("抗性+ [" + data.getVitality() + "]"));
+        }
+
+        @Override
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
             this.renderBackground(context);
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("可用点数: " + data.getAvailablePoints()), this.width / 2, 20, 0xFFFFFF);
@@ -233,4 +229,4 @@ private void spawnHorizontalRing(MinecraftClient cl, LivingEntity target) {
         @Override
         public boolean shouldPause() { return false; }
     }
-}
+} 
