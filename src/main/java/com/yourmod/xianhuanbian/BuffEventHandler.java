@@ -24,6 +24,7 @@ public class BuffEventHandler {
     private static final UUID HEALTH_UUID = UUID.fromString("a1b2c3d4-1234-5678-9abc-def012345678");
     private static final UUID ATTACK_UUID = UUID.fromString("b2c3d4e5-2345-6789-abcd-ef0123456789");
     private static final UUID SPEED_UUID = UUID.fromString("c3d4e5f6-3456-789a-bcde-f01234567890");
+    private static final UUID ABSORPTION_UUID = UUID.fromString("d4e5f6a7-4567-89ab-cdef-012345678901");
     private static final String WEAPON_TAG = "XianHuanWeapon";
     private static final Random RANDOM = new Random();
     public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffData d) {
@@ -35,10 +36,11 @@ public class BuffEventHandler {
     player.noClip = false;
     player.sendAbilitiesUpdate();
 
+    // 第一环常驻生命上限
     if (d.isUnlocked(1)) {
         EntityAttributeInstance attr = p.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
         if (attr != null) {
-            double bonus = d.getMaxHealthBonus() + d.getVitality() * 1.0;
+            double bonus = d.getMaxHealthBonus();
             EntityAttributeModifier mod = new EntityAttributeModifier(HEALTH_UUID, "xh_health", bonus, EntityAttributeModifier.Operation.ADDITION);
             attr.removeModifier(mod);
             attr.addPersistentModifier(mod);
@@ -49,36 +51,40 @@ public class BuffEventHandler {
             if (regen > 0) p.heal(regen);
         }
     }
-        if (d.isMeditating()) {
-    d.setMeditateTimer(d.getMeditateTimer() + 1);
-    if (d.getMeditateTimer() >= 100) {
-        d.setMeditateTimer(0);
-        int activeRings = 0, totalLevels = 0;
-        for (int i = 1; i <= 12; i++) if (d.isActive(i)) { activeRings++; totalLevels += d.getLevel(i); }
-        float bonus = 0.2f + (activeRings * 0.04f) + (totalLevels * 0.01f);
-        d.addAvailablePoints((int) bonus);
-    }
-    p.setPose(net.minecraft.entity.EntityPose.SITTING);
-}
 
-applyAttributes(p, d);
+    // 抗性提升（每 tick 检查吸收效果并回复）
+    applyAbsorption(p, d);
 
-for (int i = 1; i <= 12; i++) {
-    if (!d.isActive(i)) continue;
-    if (i == 2 || i == 3 || i == 4 || i == 5 || i == 6 || i == 7 || i == 9) {
-        int dur = d.getDuration(i);
-        if (dur > 0) { d.setDuration(i, dur - 1); if (dur - 1 <= 0) { d.setActive(i, false); continue; } }
+    // 修炼计时与点数获取（5分钟 = 6000 tick）
+    if (d.isMeditating()) {
+        d.setMeditateTimer(d.getMeditateTimer() + 1);
+        if (d.getMeditateTimer() >= 6000) {
+            d.setMeditateTimer(0);
+            d.addAvailablePoints(1);  // 每次固定获得1点
+        }
+        p.setPose(net.minecraft.entity.EntityPose.SITTING);
     }
-    if (d.getEnergy() >= cost) d.addEnergy(-(int) cost);
-    else { d.setActive(i, false); continue; }
-    applySingleBuff(p, i, d);
-}
-            if (d.isActive(8)) {
+            applySpeedAttribute(p, d);
+
+    for (int i = 1; i <= 12; i++) {
+        if (!d.isActive(i)) continue;
+        if (i == 2 || i == 3 || i == 4 || i == 5 || i == 6 || i == 7 || i == 9) {
+            int dur = d.getDuration(i);
+            if (dur > 0) { d.setDuration(i, dur - 1); if (dur - 1 <= 0) { d.setActive(i, false); continue; } }
+        }
+        if (d.getEnergy() >= cost) d.addEnergy(-(int) cost);
+        else { d.setActive(i, false); continue; }
+        applySingleBuff(p, i, d);
+    }
+
+    // 第八环武器
+    if (d.isActive(8)) {
         int cd = d.getDuration(8);
         if (cd <= 0) { giveRandomWeapon(p, d); d.setDuration(8, 600); }
         else d.setDuration(8, cd - 1);
     }
 
+    // 第十一环自动升级
     if (d.isActive(11)) {
         d.setPlayTicks(d.getPlayTicks() + 1);
         if (d.getPlayTicks() % (20 * 60 * 5) == 0) {
@@ -88,7 +94,7 @@ for (int i = 1; i <= 12; i++) {
     }
 }
 
-private static void applyAttributes(ServerPlayerEntity p, PlayerBuffData d) {
+private static void applySpeedAttribute(ServerPlayerEntity p, PlayerBuffData d) {
     var moveAttr = p.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED);
     if (moveAttr != null) {
         double speedBonus = d.getSpeed() * 0.02;
@@ -97,7 +103,20 @@ private static void applyAttributes(ServerPlayerEntity p, PlayerBuffData d) {
         moveAttr.addPersistentModifier(mod);
     }
 }
-   private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData d) {
+
+// 抗性提升：每 tick 保持吸收值，并每 20 tick 回复 1 点
+private static void applyAbsorption(ServerPlayerEntity p, PlayerBuffData d) {
+    int vitality = d.getVitality();
+    if (vitality <= 0) return;
+    float maxAbsorption = vitality * 2.0f;
+    float current = p.getAbsorptionAmount();
+    if (current < maxAbsorption) {
+        if (p.age % 20 == 0) {
+            p.setAbsorptionAmount(Math.min(maxAbsorption, current + 1.0f));
+        }
+    }
+}
+    private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData d) {
     int lv = d.getLevel(id);
     double strBonus = d.getStrength() * 0.5;
     if (d.getGlobalAttack() + strBonus > 0) {
@@ -112,20 +131,73 @@ private static void applyAttributes(ServerPlayerEntity p, PlayerBuffData d) {
     switch (id) {
         case 2: p.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, d.getDuration(id) > 0 ? d.getDuration(id) : 100, lv - 1, false, false)); break;
         case 4: p.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, d.getDuration(id) > 0 ? d.getDuration(id) : 100, lv - 1, false, false)); break;
-        case 5: p.getAbilities().allowFlying = true; p.sendAbilitiesUpdate(); break;
+        case 5:
+            p.getAbilities().allowFlying = true;
+            p.getAbilities().flying = true;
+            p.sendAbilitiesUpdate();
+            break;
         case 6: p.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, d.getDuration(id) > 0 ? d.getDuration(id) : 100, 0, false, false)); break;
-        case 7: p.getAbilities().allowFlying = true; p.getAbilities().invulnerable = true; p.setOnGround(false); p.noClip = true; p.sendAbilitiesUpdate(); break;
+        case 7:
+            p.getAbilities().allowFlying = true;
+            p.getAbilities().flying = true;
+            p.getAbilities().invulnerable = true;
+            p.setOnGround(false);
+            p.noClip = true;
+            p.sendAbilitiesUpdate();
+            break;
         case 8: p.getServerWorld().getEntitiesByClass(LivingEntity.class, p.getBoundingBox().expand(16), e -> e != p)
                 .forEach(e -> e.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 40, 0, false, false))); break;
         case 12: p.getAbilities().invulnerable = true; p.sendAbilitiesUpdate(); break;
-        }
+    }
     }
     public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
-    if (d.isActive(3)) { int lv = d.getLevel(3); double critMultiplier = 2.0 + (lv - 1) * 0.5; if (!p.isOnGround()) critMultiplier += 0.5; totalDamage = critMultiplier * (d.getGlobalAttack() + d.getStrength() * 0.5); target.damage(p.getDamageSources().mobAttack(p), (float) totalDamage); }
-    if (d.isActive(5)) { BlockPos pos = target.getBlockPos(); World world = p.getWorld(); world.setBlockState(pos, net.minecraft.block.Blocks.BARRIER.getDefaultState()); target.teleport(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5); target.setPosition(target.getPos()); p.getServer().execute(() -> world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState())); }
-    if (d.isActive(6)) { float mul = 2.0f + (d.getLevel(6) - 1) * 0.8f; totalDamage += mul * (d.getGlobalAttack() + d.getStrength() * 0.5); target.damage(p.getDamageSources().mobAttack(p), mul * (float) (d.getGlobalAttack() + d.getStrength() * 0.5)); }
-    if (d.isActive(9)) { int dur = d.getDuration(9) == 0 ? (d.getLevel(9) < 10 ? 10 * 20 : 600 * 20) : d.getDuration(9); List<StatusEffectInstance> effects = Arrays.asList(new StatusEffectInstance(StatusEffects.WITHER, dur, 1), new StatusEffectInstance(StatusEffects.POISON, dur, 1), new StatusEffectInstance(StatusEffects.SLOWNESS, dur, 2), new StatusEffectInstance(StatusEffects.WEAKNESS, dur, 1)); target.addStatusEffect(effects.get(RANDOM.nextInt(effects.size()))); if (Math.random() < 0.1) { net.minecraft.entity.LightningEntity lightning = new net.minecraft.entity.LightningEntity(net.minecraft.entity.EntityType.LIGHTNING_BOLT, target.getWorld()); lightning.setPosition(target.getPos()); target.getWorld().spawnEntity(lightning); } }
+    // 第五环空气屏障（优先执行）
+    if (d.isActive(5)) {
+        BlockPos pos = target.getBlockPos();
+        World world = p.getWorld();
+        world.setBlockState(pos, net.minecraft.block.Blocks.BARRIER.getDefaultState());
+        target.teleport(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+        target.setPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+        p.getServer().execute(() -> {
+            if (world.getBlockState(pos).isOf(net.minecraft.block.Blocks.BARRIER)) {
+                world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState());
+            }
+        });
+    }
+    // 第三环必定暴击
+    if (d.isActive(3)) {
+        int lv = d.getLevel(3);
+        double critMultiplier = 2.0 + (lv - 1) * 0.5;
+        if (!p.isOnGround()) critMultiplier += 0.5;
+        totalDamage = critMultiplier * (d.getGlobalAttack() + d.getStrength() * 0.5);
+        target.damage(p.getDamageSources().mobAttack(p), (float) totalDamage);
+    }
+    // 第六环二次攻击（额外伤害）
+    if (d.isActive(6)) {
+        float mul = 2.0f + (d.getLevel(6) - 1) * 0.8f;
+        float extraDmg = mul * (float)(d.getGlobalAttack() + d.getStrength() * 0.5);
+        totalDamage += extraDmg;  // 计入总伤害
+        target.damage(p.getDamageSources().mobAttack(p), extraDmg);
+    }
+    // 第九环负面效果
+    if (d.isActive(9)) {
+        int dur = d.getDuration(9) == 0 ? (d.getLevel(9) < 10 ? 10 * 20 : 600 * 20) : d.getDuration(9);
+        List<StatusEffectInstance> effects = Arrays.asList(
+            new StatusEffectInstance(StatusEffects.WITHER, dur, 1),
+            new StatusEffectInstance(StatusEffects.POISON, dur, 1),
+            new StatusEffectInstance(StatusEffects.SLOWNESS, dur, 2),
+            new StatusEffectInstance(StatusEffects.WEAKNESS, dur, 1)
+        );
+        target.addStatusEffect(effects.get(RANDOM.nextInt(effects.size())));
+        if (Math.random() < 0.1) {
+            net.minecraft.entity.LightningEntity lightning = new net.minecraft.entity.LightningEntity(
+                net.minecraft.entity.EntityType.LIGHTNING_BOLT, target.getWorld());
+            lightning.setPosition(target.getPos());
+            target.getWorld().spawnEntity(lightning);
+        }
+    }
+    // 第十环生命汲取
     if (d.isActive(10) && totalDamage > 0) p.heal((float) (totalDamage * 0.2));
     return totalDamage;
     }
