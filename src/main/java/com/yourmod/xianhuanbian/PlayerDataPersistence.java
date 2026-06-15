@@ -1,4 +1,3 @@
-
 package com.yourmod.xianhuanbian;
 
 import net.minecraft.nbt.NbtCompound;
@@ -9,16 +8,16 @@ public class PlayerDataPersistence {
     private static final String MOD_DATA_KEY = "xianhuanbian_data";
 
     public static NbtCompound getModData(ServerPlayerEntity player) {
-        NbtCompound persistentData = player.getPersistentData();
-        if (!persistentData.contains(MOD_DATA_KEY)) {
-            persistentData.put(MOD_DATA_KEY, new NbtCompound());
+        NbtCompound customData = player.getCustomData();
+        if (!customData.contains(MOD_DATA_KEY)) {
+            customData.put(MOD_DATA_KEY, new NbtCompound());
         }
-        return persistentData.getCompound(MOD_DATA_KEY);
+        return customData.getCompound(MOD_DATA_KEY);
     }
 
     public static void savePlayerData(ServerPlayerEntity player, PlayerBuffData data) {
         NbtCompound modData = getModData(player);
-        modData.copyFrom(data.toNbt());
+        modData.copyFrom(data.toNbt()); // 完全覆盖旧数据
     }
 
     public static PlayerBuffData loadPlayerData(ServerPlayerEntity player) {
