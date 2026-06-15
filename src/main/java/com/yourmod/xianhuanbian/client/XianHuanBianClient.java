@@ -40,6 +40,10 @@ public class XianHuanBianClient implements ClientModInitializer {
         GLFW.GLFW_KEY_H, GLFW.GLFW_KEY_N, GLFW.GLFW_KEY_M,
         GLFW.GLFW_KEY_P
     };
+
+    // 本地状态变量（用于持续显示文字）
+    private static boolean localMeditating = false;
+    private static boolean localRefilling = false;
     @Override
 public void onInitializeClient() {
     refillKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("回气", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "仙环变"));
@@ -61,27 +65,70 @@ public void onInitializeClient() {
 
     ClientPlayNetworking.registerGlobalReceiver(XianHuanBianMod.SYNC_BUFFS, (client, handler, buf, responseSender) -> {
         var tag = buf.readNbt(); if (tag != null) PlayerBuffData.updateClientFromNbt(tag);
+        // 同步服务端状态到本地
+        PlayerBuffData d = PlayerBuffData.getClient();
+        localMeditating = d.isMeditating();
     });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
         if (client.player == null || client.world == null) return;
         PlayerBuffData d = PlayerBuffData.getClient();
-        while (refillKey.wasPressed()) ClientPlayNetworking.send(XianHuanBianMod.REFILL_ENERGY, PacketByteBufs.empty());
-        while (infoKey.wasPressed()) { client.setScreen(new AttributeScreen(d)); }
-        while (meditateKey.wasPressed()) {
-            if (d.isMeditating()) ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_STOP, PacketByteBufs.empty());
-            else ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_START, PacketByteBufs.empty());
+
+        // 移动检测：若玩家移动，自动取消修炼和回气
+        boolean moving = client.player.input.movementForward != 0
+                || client.player.input.movementSideways != 0
+                || client.options.jumpKey.isPressed();
+        if (moving) {
+            if (localMeditating) {
+                localMeditating = false;
+                ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_STOP, PacketByteBufs.empty());
+            }
+            if (localRefilling) {
+                localRefilling = false;
+            }
         }
+
+        // 回气键：切换持续显示
+        if (refillKey.wasPressed()) {
+            localRefilling = !localRefilling;
+            if (localRefilling) {
+                ClientPlayNetworking.send(XianHuanBianMod.REFILL_ENERGY, PacketByteBufs.empty()); // 仍为一次性回30能量
+            }
+        }
+
+        // 修炼键：切换状态，发送开始/停止包
+        if (meditateKey.wasPressed()) {
+            localMeditating = !localMeditating;
+            if (localMeditating) {
+                ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_START, PacketByteBufs.empty());
+            } else {
+                ClientPlayNetworking.send(XianHuanBianMod.MEDITATE_STOP, PacketByteBufs.empty());
+            }
+        }
+
+        // 属性页面
+        if (infoKey.wasPressed()) { client.setScreen(new AttributeScreen(d)); }
+
         for (int i = 1; i <= 10; i++) {
             KeyBinding kb = singleKeys.get(i);
             if (kb != null && kb.wasPressed()) ClientPlayNetworking.send(new Identifier("xianhuanbian", "toggle_" + i), PacketByteBufs.empty());
         }
         for (int i = 1; i <= 12; i++) if (d.isActive(i)) spawnPlayerRing(client, client.player, i, COLORS[i]);
 
+        // 左键计数
         if (client.options.attackKey.wasPressed()) {
             ClientPlayNetworking.send(XianHuanBianMod.LEFT_CLICK_COUNT, PacketByteBufs.empty());
         }
 
-        StringBuilder hud = new StringBuilder("气 [");
+        // HUD：能量条、修为、环、状态文字
+        StringBuilder hud = new StringBuilder();
+        // 显示状态文字
+        if (localRefilling) {
+            hud.append("【回气中】 ");
+        }
+        if (localMeditating) {
+            hud.append("【修炼中】 ");
+        }
+        hud.append("气 [");
         int barLen = 20, filled = (int) (d.getEnergy() / 100.0 * barLen);
         for (int i = 0; i < barLen; i++) hud.append(i < filled ? "|" : " ");
         hud.append("] ").append(d.getEnergy()).append("% 修:").append(d.getCultivation()).append(" 环:");
