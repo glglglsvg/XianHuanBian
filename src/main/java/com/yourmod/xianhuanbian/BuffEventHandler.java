@@ -1,55 +1,34 @@
-    public static PlayerBuffData getClient() { return CLIENT_CACHE; }
-    public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
+package com.yourmod.xianhuanbian;
 
-    public static PlayerBuffData fromNbt(NbtCompound tag) {
-        PlayerBuffData data = new PlayerBuffData();
-        for (int i = 1; i <= 12; i++) {
-            data.unlocked[i] = tag.getBoolean("unlocked" + i);
-            data.active[i] = tag.getBoolean("active" + i);
-            data.levels[i] = tag.getInt("level" + i);
-            data.durations[i] = tag.getInt("dur" + i);
-            data.maxDurations[i] = tag.getInt("maxDur" + i);
-            data.upgradeCost[i] = tag.getLong("cost" + i);
-        }
-        for (int i = 1; i <= 10; i++) {
-            data.chance[i] = tag.getFloat("chance" + i);
-            data.behaviorDone[i] = tag.getBoolean("bdone" + i);
-        }
-        data.eatCount = tag.getInt("eat"); data.leftClickCount = tag.getInt("lclick"); data.itemKillCount = tag.getInt("ikill");
-        data.walkDist = tag.getDouble("walk"); data.breakCount = tag.getInt("break"); data.plantCount = tag.getInt("plant");
-        data.placeCount = tag.getInt("place"); data.craftToolCount = tag.getInt("craft"); data.fireWaterCount = tag.getInt("fire");
-        data.cultivation = tag.getLong("cultivation"); data.energy = tag.getInt("energy"); data.maxEnergy = tag.getInt("maxEnergy");
-        data.energyCostPerTick = tag.getFloat("energyCost"); data.playTicks = tag.getLong("playTicks");
-        data.globalAttack = tag.getDouble("globalAttack"); data.maxHealthBonus = tag.getInt("maxHealth");
-        data.killHealAmount = tag.getInt("killHeal"); data.killMultiplier = tag.getDouble("killMult"); data.regenLevel = tag.getInt("regen");
-        data.availablePoints = tag.getInt("points"); data.strength = tag.getInt("str"); data.speed = tag.getInt("spd");
-        data.vitality = tag.getInt("vit"); data.killCounter = tag.getInt("kills"); data.isMeditating = tag.getBoolean("med");
-        data.meditateTimer = tag.getInt("medTimer");
-        return data;
-    }
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantments;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributeModifier;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.*;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import java.util.*;
 
-    public NbtCompound toNbt() {
-        NbtCompound tag = new NbtCompound();
-        for (int i = 1; i <= 12; i++) {
-            tag.putBoolean("unlocked" + i, unlocked[i]); tag.putBoolean("active" + i, active[i]);
-            tag.putInt("level" + i, levels[i]); tag.putInt("dur" + i, durations[i]);
-            tag.putInt("maxDur" + i, maxDurations[i]); tag.putLong("cost" + i, upgradeCost[i]);
-        }
-        for (int i = 1; i <= 10; i++) { tag.putFloat("chance" + i, chance[i]); tag.putBoolean("bdone" + i, behaviorDone[i]); }
-        tag.putInt("eat", eatCount); tag.putInt("lclick", leftClickCount); tag.putInt("ikill", itemKillCount);
-        tag.putDouble("walk", walkDist); tag.putInt("break", breakCount); tag.putInt("plant", plantCount);
-        tag.putInt("place", placeCount); tag.putInt("craft", craftToolCount); tag.putInt("fire", fireWaterCount);
-        tag.putLong("cultivation", cultivation); tag.putInt("energy", energy); tag.putInt("maxEnergy", maxEnergy);
-        tag.putFloat("energyCost", energyCostPerTick); tag.putLong("playTicks", playTicks);
-        tag.putDouble("globalAttack", globalAttack); tag.putInt("maxHealth", maxHealthBonus);
-        tag.putInt("killHeal", killHealAmount); tag.putDouble("killMult", killMultiplier); tag.putInt("regen", regenLevel);
-        tag.putInt("points", availablePoints); tag.putInt("str", strength); tag.putInt("spd", speed);
-        tag.putInt("vit", vitality); tag.putInt("kills", killCounter); tag.putBoolean("med", isMeditating);
-        tag.putInt("medTimer", meditateTimer);
-        return tag;
-    }
-}
-public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffData d) {
+import static net.minecraft.server.command.CommandManager.*;
+
+public class BuffEventHandler {
+    private static final UUID HEALTH_UUID = UUID.fromString("a1b2c3d4-1234-5678-9abc-def012345678");
+    private static final UUID ATTACK_UUID = UUID.fromString("b2c3d4e5-2345-6789-abcd-ef0123456789");
+    private static final UUID SPEED_UUID = UUID.fromString("c3d4e5f6-3456-789a-bcde-f01234567890");
+    private static final UUID ABSORPTION_UUID = UUID.fromString("d4e5f6a7-4567-89ab-cdef-012345678901");
+    private static final String WEAPON_TAG = "XianHuanWeapon";
+    private static final Random RANDOM = new Random();
+    public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffData d) {
     float cost = d.getEnergyCostPerTick();
     PlayerEntity player = (PlayerEntity) p;
 
@@ -175,7 +154,7 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
         case 12: p.getAbilities().invulnerable = true; p.sendAbilitiesUpdate(); break;
     }
 }
-public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
+    public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
     if (d.isActive(5)) {
         BlockPos pos = target.getBlockPos();
@@ -255,7 +234,7 @@ public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d)
     }
     return false;
 }
-    private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
+        private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
         d.setUnlocked(id, true); d.setActive(id, true); d.setLevel(id, 1);
         if (id == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
         if (id == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
@@ -336,7 +315,7 @@ public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d)
                 if (id == 1) { data.setMaxHealthBonus(5); data.setRegenLevel(1); applyHealth(player, data); }
                 if (id == 10) { data.setKillHealAmount(5); data.setKillMultiplier(0.5); }
                 if (id == 5) data.setDuration(id, 60 * 20);
-               double newAttack = Math.pow(data.getGlobalAttack() + 2, 1.5);
+                double newAttack = Math.pow(data.getGlobalAttack() + 2, 1.5);
                 data.setGlobalAttack(newAttack);
                 data.onLevelUp(id);
                 data.save(player);
