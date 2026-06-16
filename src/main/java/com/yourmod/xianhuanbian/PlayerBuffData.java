@@ -43,7 +43,7 @@ public class PlayerBuffData {
         Arrays.fill(chance, 0.0f);
         for (int i = 1; i <= 12; i++) {
             levels[i] = 1;
-            upgradeCost[i] = (i == 1) ? 200 : (long) Math.pow(200, i);
+            upgradeCost[i] = 200;          // 所有环初始升级成本 200
         }
     }
 
@@ -129,7 +129,8 @@ public void addCraftTool() { if (!hasAnyRing() && !behaviorDone[8]) { craftToolC
 public void addFireWater() { if (!hasAnyRing() && !behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= 28) setBehaviorDone(9); } }
 public void checkExp(float level) { if (!hasAnyRing() && !behaviorDone[10] && level >= 2.0f) setBehaviorDone(10); }
 public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
-    public void applyBehaviorChances() {
+
+public void applyBehaviorChances() {
     for (int i = 1; i <= 10; i++) {
         if (behaviorDone[i]) chance[i] = 0.2f;
         else chance[i] = 0.0f;
