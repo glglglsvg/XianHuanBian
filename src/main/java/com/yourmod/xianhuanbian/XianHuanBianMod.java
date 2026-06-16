@@ -16,7 +16,6 @@ import net.minecraft.item.*;
 import net.minecraft.block.*;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import net.minecraft.world.WorldSavePath;
 import java.util.*;
 
 public class XianHuanBianMod implements ModInitializer {
@@ -54,7 +53,8 @@ public class XianHuanBianMod implements ModInitializer {
 });
         
 ServerLifecycleEvents.SERVER_STARTING.register(server -> {
-    Path worldPath = server.getSavePath(WorldSavePath.ROOT);
+    // 通过主世界获取世界根目录，避免使用 WorldSavePath
+    Path worldPath = server.getOverworld().getSavePath().getParent();
     PlayerDataStorage.setWorldPath(worldPath);
 });
         
