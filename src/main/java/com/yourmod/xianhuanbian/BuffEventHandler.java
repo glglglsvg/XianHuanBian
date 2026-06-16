@@ -143,11 +143,12 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
             break;
         case 6: p.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, d.getDuration(id) > 0 ? d.getDuration(id) : 100, 0, false, false)); break;
         case 7:
-            p.getAbilities().allowFlying = true;
-            p.getAbilities().flying = true;
+            // 第七环：穿墙+无敌，禁止飞行，有时间限制
+            p.getAbilities().allowFlying = false;
+            p.getAbilities().flying = false;
             p.getAbilities().invulnerable = true;
-            p.setOnGround(false);
             p.noClip = true;
+            p.setOnGround(false);
             p.sendAbilitiesUpdate();
             break;
         case 8: p.getServerWorld().getEntitiesByClass(LivingEntity.class, p.getBoundingBox().expand(16), e -> e != p)
@@ -158,32 +159,25 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
     public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
 
-    // 第五环 - 空气屏障囚笼（每级增大范围，1级1x1，2级2x2...）
+    // 第五环 - 清除目标周围方块 (等级决定范围，1级2x2，2级3x3...)
     if (d.isActive(5)) {
         int lv = d.getLevel(5);
-        int size = Math.max(1, lv);                // 1级=1，2级=2...
+        int size = 1 + lv;                          // 1级 = 2，2级 = 3，以此类推
         World world = p.getWorld();
-        BlockPos base = target.getBlockPos();
-        int height = (int) Math.ceil(target.getHeight());
-        List<BlockPos> barriers = new ArrayList<>();
-        for (int dx = 0; dx < size; dx++) {
-            for (int dz = 0; dz < size; dz++) {
-                for (int dy = 0; dy < height; dy++) {
-                    BlockPos bp = base.add(dx, dy, dz);
-                    world.setBlockState(bp, net.minecraft.block.Blocks.BARRIER.getDefaultState());
-                    barriers.add(bp);
+        BlockPos center = target.getBlockPos();
+        int half = size / 2;
+        for (int dx = -half; dx <= half; dx++) {
+            for (int dz = -half; dz <= half; dz++) {
+                for (int dy = 0; dy < 3; dy++) {
+                    BlockPos bp = center.add(dx, dy, dz);
+                    if (world.getBlockState(bp).getHardness(world, bp) >= 0) {
+                        world.breakBlock(bp, true);
+                    }
                 }
             }
         }
-        // 3秒后自动清除屏障
-        p.getServer().execute(() -> {
-            try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
-            for (BlockPos bp : barriers) {
-                if (world.getBlockState(bp).isOf(net.minecraft.block.Blocks.BARRIER)) {
-                    world.setBlockState(bp, net.minecraft.block.Blocks.AIR.getDefaultState());
-                }
-            }
-        });
+        // 清除后造成少量伤害
+        target.damage(p.getDamageSources().mobAttack(p), (float)(d.getGlobalAttack() * 0.2));
     }
 
     // 第三环暴击
@@ -218,13 +212,13 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
             target.getWorld().spawnEntity(lightning);
         }
     }
-    // 第十环生命汲取（仅对已有额外伤害回血）
+    // 第十环生命汲取
     if (d.isActive(10) && totalDamage > 0) p.heal((float) (totalDamage * 0.2));
     return totalDamage;
 }
 
 public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
-    d.addCultivation(2);   // 固定击杀修为+2
+    d.addCultivation(2);   // 固定击杀修为 +2
     if (d.isActive(10)) {
         p.heal(d.getKillHealAmount());
     }
@@ -248,6 +242,7 @@ public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d)
             if (i == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
             if (i == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
             if (i == 5) d.setDuration(i, 60 * 20);
+            if (i == 7) { d.setMaxDuration(7, 1); d.activate(7, 1); }   // 第七环开启时间限制
             double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
             d.setGlobalAttack(newAttack);
             d.onLevelUp(i);
@@ -264,6 +259,7 @@ private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
     if (id == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
     if (id == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
     if (id == 5) d.setDuration(id, 60 * 20);
+    if (id == 7) { d.setMaxDuration(7, 1); d.activate(7, 1); }   // 第七环开启时间限制
     double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
     d.setGlobalAttack(newAttack);
     d.onLevelUp(id);
@@ -273,8 +269,7 @@ private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
 private static void upgradeBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
     d.setCultivation(d.getCultivation() - d.getUpgradeCost(id));
     d.setLevel(id, d.getLevel(id) + 1);
-    // 新升级成本：200 * 2^(新等级-1)
-    d.setUpgradeCost(id, (long) (200 * Math.pow(2, d.getLevel(id) - 1)));
+    d.setUpgradeCost(id, (long) (200 * Math.pow(2, d.getLevel(id) - 1)));   // 成本翻倍
     double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
     d.setGlobalAttack(newAttack);
     if (id == 1) { d.setMaxHealthBonus(d.getMaxHealthBonus() + 5); d.setRegenLevel(d.getLevel(id)); applyHealth(p, d); }
@@ -294,30 +289,30 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
     }
 }
         private static void giveRandomWeapon(ServerPlayerEntity p, PlayerBuffData d) {
-    for (ItemStack stack : p.getInventory().main) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
-    for (ItemStack stack : p.getInventory().offHand) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
-    int lv = d.getLevel(8);
-    List<Item> weapons = new ArrayList<>();
-    if (lv <= 1) weapons = new ArrayList<>(Arrays.asList(Items.WOODEN_SWORD, Items.WOODEN_AXE, Items.STONE_SWORD, Items.STONE_AXE));
-    else if (lv <= 3) weapons = new ArrayList<>(Arrays.asList(Items.IRON_SWORD, Items.IRON_AXE));
-    else if (lv <= 5) weapons = new ArrayList<>(Arrays.asList(Items.DIAMOND_SWORD, Items.DIAMOND_AXE));
-    else weapons = new ArrayList<>(Arrays.asList(Items.NETHERITE_SWORD, Items.NETHERITE_AXE));
-    if (RANDOM.nextBoolean()) weapons.add(Items.BOW);
-    if (RANDOM.nextBoolean()) weapons.add(Items.CROSSBOW);
-    Item chosen = weapons.get(RANDOM.nextInt(weapons.size()));
-    ItemStack weaponStack = new ItemStack(chosen);
-    weaponStack.setDamage(weaponStack.getMaxDamage() - 3);
-    weaponStack.getOrCreateNbt().putBoolean(WEAPON_TAG, true);
-    List<Enchantment> attackEnchants = Arrays.asList(Enchantments.SHARPNESS, Enchantments.KNOCKBACK, Enchantments.FIRE_ASPECT, Enchantments.LOOTING, Enchantments.SWEEPING);
-    Enchantment enchant = attackEnchants.get(RANDOM.nextInt(attackEnchants.size()));
-    if (enchant == Enchantments.SWEEPING && !(chosen instanceof SwordItem)) enchant = Enchantments.SHARPNESS;
-    weaponStack.addEnchantment(enchant, Math.min(lv, 10));
-    if (!p.getInventory().insertStack(weaponStack)) p.dropItem(weaponStack, false);
-    if (chosen == Items.BOW || chosen == Items.CROSSBOW) {
-        ItemStack arrows = new ItemStack(Items.ARROW, 3);
-        if (!p.getInventory().insertStack(arrows)) p.dropItem(arrows, false);
+        for (ItemStack stack : p.getInventory().main) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
+        for (ItemStack stack : p.getInventory().offHand) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
+        int lv = d.getLevel(8);
+        List<Item> weapons = new ArrayList<>();
+        if (lv <= 1) weapons = new ArrayList<>(Arrays.asList(Items.WOODEN_SWORD, Items.WOODEN_AXE, Items.STONE_SWORD, Items.STONE_AXE));
+        else if (lv <= 3) weapons = new ArrayList<>(Arrays.asList(Items.IRON_SWORD, Items.IRON_AXE));
+        else if (lv <= 5) weapons = new ArrayList<>(Arrays.asList(Items.DIAMOND_SWORD, Items.DIAMOND_AXE));
+        else weapons = new ArrayList<>(Arrays.asList(Items.NETHERITE_SWORD, Items.NETHERITE_AXE));
+        if (RANDOM.nextBoolean()) weapons.add(Items.BOW);
+        if (RANDOM.nextBoolean()) weapons.add(Items.CROSSBOW);
+        Item chosen = weapons.get(RANDOM.nextInt(weapons.size()));
+        ItemStack weaponStack = new ItemStack(chosen);
+        weaponStack.setDamage(weaponStack.getMaxDamage() - 3);
+        weaponStack.getOrCreateNbt().putBoolean(WEAPON_TAG, true);
+        List<Enchantment> attackEnchants = Arrays.asList(Enchantments.SHARPNESS, Enchantments.KNOCKBACK, Enchantments.FIRE_ASPECT, Enchantments.LOOTING, Enchantments.SWEEPING);
+        Enchantment enchant = attackEnchants.get(RANDOM.nextInt(attackEnchants.size()));
+        if (enchant == Enchantments.SWEEPING && !(chosen instanceof SwordItem)) enchant = Enchantments.SHARPNESS;
+        weaponStack.addEnchantment(enchant, Math.min(lv, 10));
+        if (!p.getInventory().insertStack(weaponStack)) p.dropItem(weaponStack, false);
+        if (chosen == Items.BOW || chosen == Items.CROSSBOW) {
+            ItemStack arrows = new ItemStack(Items.ARROW, 3);
+            if (!p.getInventory().insertStack(arrows)) p.dropItem(arrows, false);
+        }
     }
-}
 
     public static void giveWeaponOnActivate(ServerPlayerEntity p, PlayerBuffData d) {
         giveRandomWeapon(p, d);
@@ -340,6 +335,7 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
                 if (id == 1) { data.setMaxHealthBonus(5); data.setRegenLevel(1); applyHealth(player, data); }
                 if (id == 10) { data.setKillHealAmount(5); data.setKillMultiplier(0.5); }
                 if (id == 5) data.setDuration(id, 60 * 20);
+                if (id == 7) { data.setMaxDuration(7, 1); data.activate(7, 1); }
                 double newAttack = Math.pow(data.getGlobalAttack() + 2, 1.5);
                 data.setGlobalAttack(newAttack);
                 data.onLevelUp(id);
