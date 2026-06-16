@@ -1,5 +1,6 @@
 package com.yourmod.xianhuanbian;
 
+import net.fabricmc.api.EnvType;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -7,6 +8,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.*;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.*;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.TypedActionResult;
@@ -16,7 +18,6 @@ import net.minecraft.item.*;
 import net.minecraft.block.*;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import net.fabricmc.loader.api.FabricLoader;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -48,10 +49,16 @@ public void onInitialize() {
         BuffEventHandler.registerCommands(dispatcher);
     });
 
-    // 设置当前世界的独立数据目录（使用世界名称构造路径，避免跨存档继承）
+    // 设置当前世界的独立数据目录（区分客户端/服务器，确保存档隔离）
     ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+        Path gameDir = FabricLoader.getInstance().getGameDir();
         String worldName = server.getSaveProperties().getLevelName();
-        Path worldPath = FabricLoader.getInstance().getGameDir().resolve(worldName);
+        Path worldPath;
+        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
+            worldPath = gameDir.resolve("saves").resolve(worldName);
+        } else {
+            worldPath = gameDir.resolve(worldName);
+        }
         PlayerDataStorage.setWorldPath(worldPath);
     });
     ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
