@@ -51,7 +51,7 @@ public class PlayerBuffData {
 }
 
 public static PlayerBuffData getOrCreate(ServerPlayerEntity player) {
-    return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> PlayerDataPersistence.loadPlayerData(player));
+    return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> PlayerDataStorage.loadPlayerData(uuid));
 }
 
 public void save(ServerPlayerEntity player) {
@@ -60,8 +60,7 @@ public void save(ServerPlayerEntity player) {
 
 public static void reset(ServerPlayerEntity player) {
     SERVER_DATA.remove(player.getUuid());
-    NbtCompound modData = PlayerDataPersistence.getModData(player);
-    modData.copyFrom(new NbtCompound());
+    PlayerDataStorage.remove(player.getUuid());
 }
     public boolean isUnlocked(int id) { return unlocked[id]; }
 public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
