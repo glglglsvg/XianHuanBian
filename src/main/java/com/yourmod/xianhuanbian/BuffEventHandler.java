@@ -91,12 +91,9 @@ public class BuffEventHandler {
 
     private static void restoreDefaultAbilities(ServerPlayerEntity p, PlayerBuffData d) {
         if (p.isCreative() || p.isSpectator()) return;
+        // 只要第五环和第七环都不激活，才重置能力
         if (!d.isActive(5) && !d.isActive(7)) {
-            p.getAbilities().allowFlying = false;
-            p.getAbilities().flying = false;
-            p.getAbilities().invulnerable = false;
-            p.noClip = false;
-            p.sendAbilitiesUpdate();
+            exitObserverMode(p);
         }
     }
     private static void applySpeedAttribute(ServerPlayerEntity p, PlayerBuffData d) {
@@ -143,13 +140,8 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
             break;
         case 6: p.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, d.getDuration(id) > 0 ? d.getDuration(id) : 100, 0, false, false)); break;
         case 7:
-            // 第七环：可互动的穿墙观察者（无飞行，显示玩家实体）
-            p.getAbilities().allowFlying = false;
-            p.getAbilities().flying = false;
-            p.getAbilities().invulnerable = true;
-            p.noClip = true;
-            p.setOnGround(false);
-            p.sendAbilitiesUpdate();
+            // 第七环：可互动的水平面穿墙观察者
+            enterObserverMode(p);
             break;
         case 8: p.getServerWorld().getEntitiesByClass(LivingEntity.class, p.getBoundingBox().expand(16), e -> e != p)
                 .forEach(e -> e.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 40, 0, false, false))); break;
@@ -159,37 +151,12 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
     public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
 
-    // 第五环 - 空气屏障窒息 + 范围清除
+    // 第五环 - 爆炸伤害（威力=等级，1级破坏1方块，2级2×2...）
     if (d.isActive(5)) {
         int lv = d.getLevel(5);
+        float power = (float) lv;                   // 1级威力1，2级威力2...
         World world = p.getWorld();
-        BlockPos pos = target.getBlockPos();
-        // 生成2格高屏障，强制重合造成窒息
-        world.setBlockState(pos, net.minecraft.block.Blocks.BARRIER.getDefaultState());
-        world.setBlockState(pos.up(), net.minecraft.block.Blocks.BARRIER.getDefaultState());
-        // 2秒后移除屏障并破坏周围方块（范围随等级提升，最大半径5）
-        int radius = Math.min(lv, 5);   // 1级半径1格，10级半径5格
-        p.getServer().execute(() -> {
-            try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
-            // 移除屏障
-            if (world.getBlockState(pos).isOf(net.minecraft.block.Blocks.BARRIER)) {
-                world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState());
-            }
-            if (world.getBlockState(pos.up()).isOf(net.minecraft.block.Blocks.BARRIER)) {
-                world.setBlockState(pos.up(), net.minecraft.block.Blocks.AIR.getDefaultState());
-            }
-            // 破坏周围方块
-            for (int dx = -radius; dx <= radius; dx++) {
-                for (int dz = -radius; dz <= radius; dz++) {
-                    for (int dy = -1; dy <= 2; dy++) { // 高度范围：脚下一格到头顶两格
-                        BlockPos bp = pos.add(dx, dy, dz);
-                        if (world.getBlockState(bp).getHardness(world, bp) >= 0) {
-                            world.breakBlock(bp, true);
-                        }
-                    }
-                }
-            }
-        });
+        world.createExplosion(p, target.getX(), target.getY(), target.getZ(), power, true, World.ExplosionSourceType.MOB);
     }
 
     // 第三环暴击
@@ -300,7 +267,7 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
         p.setHealth(Math.min(p.getHealth(), p.getMaxHealth()));
     }
 }
-      private static void giveRandomWeapon(ServerPlayerEntity p, PlayerBuffData d) {
+        private static void giveRandomWeapon(ServerPlayerEntity p, PlayerBuffData d) {
         for (ItemStack stack : p.getInventory().main) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
         for (ItemStack stack : p.getInventory().offHand) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
         int lv = d.getLevel(8);
@@ -356,5 +323,35 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
                 return 1;
             }))
         );
+    }
+
+    // ---------- 第七环观察者模式辅助方法 ----------
+    private static void enterObserverMode(ServerPlayerEntity player) {
+        player.getAbilities().invulnerable = true;
+        player.getAbilities().allowFlying = false;
+        player.getAbilities().flying = false;
+        player.noClip = true;
+        player.setOnGround(false);
+        player.sendAbilitiesUpdate();
+    }
+
+    private static void exitObserverMode(ServerPlayerEntity player) {
+        if (!player.isCreative() && !player.isSpectator()) {
+            player.getAbilities().invulnerable = false;
+            player.getAbilities().allowFlying = false;
+            player.getAbilities().flying = false;
+            player.noClip = false;
+            player.setOnGround(true);
+            player.sendAbilitiesUpdate();
+        }
+    }
+
+    public static void tickObserverMode(ServerPlayerEntity player, PlayerBuffData data) {
+        if (!data.isActive(7)) return;
+        int dur = data.getDuration(7);
+        if (dur <= 0) {
+            exitObserverMode(player);
+            data.setActive(7, false);
+        }
     }
 }
