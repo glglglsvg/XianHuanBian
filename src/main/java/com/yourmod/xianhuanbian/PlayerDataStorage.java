@@ -10,7 +10,11 @@ import java.nio.file.Path;
 import java.util.UUID;
 
 public class PlayerDataStorage {
-    private static final Path SAVE_DIR = FabricLoader.getInstance().getGameDir().resolve("xianhuanbian/playerdata");
+    private static Path SAVE_DIR = FabricLoader.getInstance().getGameDir().resolve("xianhuanbian/playerdata");
+
+    public static void setWorldPath(Path worldPath) {
+        SAVE_DIR = worldPath.resolve("xianhuanbian/playerdata");
+    }
 
     public static void savePlayerData(UUID uuid, PlayerBuffData data) {
         try {
