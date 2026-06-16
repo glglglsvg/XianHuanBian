@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.*;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.*;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.TypedActionResult;
@@ -15,6 +16,7 @@ import net.minecraft.item.*;
 import net.minecraft.block.*;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.world.WorldSavePath;
 import java.util.*;
 
 public class XianHuanBianMod implements ModInitializer {
@@ -50,7 +52,12 @@ public class XianHuanBianMod implements ModInitializer {
     PlayerBuffData data = PlayerBuffData.getOrCreate(player);
     syncToClient(player, data);
 });
-
+        
+ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+    Path worldPath = server.getSavePath(WorldSavePath.ROOT);
+    PlayerDataStorage.setWorldPath(worldPath);
+});
+        
 ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
     ServerPlayerEntity player = handler.player;
     PlayerBuffData data = PlayerBuffData.SERVER_DATA.remove(player.getUuid());
