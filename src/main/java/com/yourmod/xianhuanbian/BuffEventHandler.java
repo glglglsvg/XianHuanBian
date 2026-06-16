@@ -28,77 +28,78 @@ public class BuffEventHandler {
     private static final UUID ABSORPTION_UUID = UUID.fromString("d4e5f6a7-4567-89ab-cdef-012345678901");
     private static final String WEAPON_TAG = "XianHuanWeapon";
     private static final Random RANDOM = new Random();
+
     public static void applyActiveBuffs(ServerPlayerEntity p, PlayerBuffData d) {
-    float cost = d.getEnergyCostPerTick();
-    PlayerEntity player = (PlayerEntity) p;
+        float cost = d.getEnergyCostPerTick();
+        PlayerEntity player = (PlayerEntity) p;
 
-    if (d.isUnlocked(1)) {
-        EntityAttributeInstance attr = p.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
-        if (attr != null) {
-            double bonus = d.getMaxHealthBonus();
-            EntityAttributeModifier mod = new EntityAttributeModifier(HEALTH_UUID, "xh_health", bonus, EntityAttributeModifier.Operation.ADDITION);
-            attr.removeModifier(mod);
-            attr.addPersistentModifier(mod);
-            p.setHealth(Math.min(p.getHealth(), p.getMaxHealth()));
+        if (d.isUnlocked(1)) {
+            EntityAttributeInstance attr = p.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
+            if (attr != null) {
+                double bonus = d.getMaxHealthBonus();
+                EntityAttributeModifier mod = new EntityAttributeModifier(HEALTH_UUID, "xh_health", bonus, EntityAttributeModifier.Operation.ADDITION);
+                attr.removeModifier(mod);
+                attr.addPersistentModifier(mod);
+                p.setHealth(Math.min(p.getHealth(), p.getMaxHealth()));
+            }
+            if (d.isActive(1) && p.age % 20 == 0) {
+                int regen = d.getRegenLevel();
+                if (regen > 0) p.heal(regen);
+            }
         }
-        if (d.isActive(1) && p.age % 20 == 0) {
-            int regen = d.getRegenLevel();
-            if (regen > 0) p.heal(regen);
+
+        applyAbsorption(p, d);
+
+        if (d.isMeditating()) {
+            d.setMeditateTimer(d.getMeditateTimer() + 1);
+            if (d.getMeditateTimer() >= 6000) {
+                d.setMeditateTimer(0);
+                d.addAvailablePoints(1);
+            }
+            p.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100, 0, false, false));
+            p.setPose(net.minecraft.entity.EntityPose.SITTING);
+        }
+        applySpeedAttribute(p, d);
+
+        for (int i = 1; i <= 12; i++) {
+            if (!d.isActive(i)) continue;
+            if (i == 2 || i == 3 || i == 4 || i == 5 || i == 6 || i == 7 || i == 9) {
+                int dur = d.getDuration(i);
+                if (dur > 0) { d.setDuration(i, dur - 1); if (dur - 1 <= 0) { d.setActive(i, false); continue; } }
+            }
+            if (d.getEnergy() >= cost) d.addEnergy(-(int) cost);
+            else { d.setActive(i, false); continue; }
+            applySingleBuff(p, i, d);
+        }
+
+        restoreDefaultAbilities(p, d);
+
+        if (d.isActive(8)) {
+            int cd = d.getDuration(8);
+            if (cd <= 0) { giveRandomWeapon(p, d); d.setDuration(8, 600); }
+            else d.setDuration(8, cd - 1);
+        }
+
+        if (d.isActive(11)) {
+            d.setPlayTicks(d.getPlayTicks() + 1);
+            if (d.getPlayTicks() % (20 * 60 * 5) == 0) {
+                for (int i = 1; i <= 10; i++) if (d.isActive(i) && d.getLevel(i) < 99) upgradeBuff(p, d, i);
+                p.sendMessage(Text.literal("仙环之力随修行增长……"), false);
+            }
         }
     }
 
-    applyAbsorption(p, d);
-
-    if (d.isMeditating()) {
-        d.setMeditateTimer(d.getMeditateTimer() + 1);
-        if (d.getMeditateTimer() >= 6000) {
-            d.setMeditateTimer(0);
-            d.addAvailablePoints(1);
-        }
-        p.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100, 0, false, false));
-        p.setPose(net.minecraft.entity.EntityPose.SITTING);
-    }
-    applySpeedAttribute(p, d);
-
-    for (int i = 1; i <= 12; i++) {
-        if (!d.isActive(i)) continue;
-        if (i == 2 || i == 3 || i == 4 || i == 5 || i == 6 || i == 7 || i == 9) {
-            int dur = d.getDuration(i);
-            if (dur > 0) { d.setDuration(i, dur - 1); if (dur - 1 <= 0) { d.setActive(i, false); continue; } }
-        }
-        if (d.getEnergy() >= cost) d.addEnergy(-(int) cost);
-        else { d.setActive(i, false); continue; }
-        applySingleBuff(p, i, d);
-    }
-
-    restoreDefaultAbilities(p, d);
-
-    if (d.isActive(8)) {
-        int cd = d.getDuration(8);
-        if (cd <= 0) { giveRandomWeapon(p, d); d.setDuration(8, 600); }
-        else d.setDuration(8, cd - 1);
-    }
-
-    if (d.isActive(11)) {
-        d.setPlayTicks(d.getPlayTicks() + 1);
-        if (d.getPlayTicks() % (20 * 60 * 5) == 0) {
-            for (int i = 1; i <= 10; i++) if (d.isActive(i) && d.getLevel(i) < 99) upgradeBuff(p, d, i);
-            p.sendMessage(Text.literal("仙环之力随修行增长……"), false);
+    private static void restoreDefaultAbilities(ServerPlayerEntity p, PlayerBuffData d) {
+        if (p.isCreative() || p.isSpectator()) return;
+        if (!d.isActive(5) && !d.isActive(7)) {
+            p.getAbilities().allowFlying = false;
+            p.getAbilities().flying = false;
+            p.getAbilities().invulnerable = false;
+            p.noClip = false;
+            p.sendAbilitiesUpdate();
         }
     }
-}
-
-private static void restoreDefaultAbilities(ServerPlayerEntity p, PlayerBuffData d) {
-    if (p.isCreative() || p.isSpectator()) return;
-    if (!d.isActive(5) && !d.isActive(7)) {
-        p.getAbilities().allowFlying = false;
-        p.getAbilities().flying = false;
-        p.getAbilities().invulnerable = false;
-        p.noClip = false;
-        p.sendAbilitiesUpdate();
-    }
-}
-private static void applySpeedAttribute(ServerPlayerEntity p, PlayerBuffData d) {
+    private static void applySpeedAttribute(ServerPlayerEntity p, PlayerBuffData d) {
     var moveAttr = p.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED);
     if (moveAttr != null) {
         double speedBonus = d.getSpeed() * 0.02;
@@ -156,18 +157,36 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
 }
     public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
+
+    // 第五环 - 空气屏障囚笼（每级增大范围，1级1x1，2级2x2...）
     if (d.isActive(5)) {
-        BlockPos pos = target.getBlockPos();
+        int lv = d.getLevel(5);
+        int size = Math.max(1, lv);                // 1级=1，2级=2...
         World world = p.getWorld();
-        world.setBlockState(pos, net.minecraft.block.Blocks.BARRIER.getDefaultState());
-        target.teleport(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
-        target.setPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+        BlockPos base = target.getBlockPos();
+        int height = (int) Math.ceil(target.getHeight());
+        List<BlockPos> barriers = new ArrayList<>();
+        for (int dx = 0; dx < size; dx++) {
+            for (int dz = 0; dz < size; dz++) {
+                for (int dy = 0; dy < height; dy++) {
+                    BlockPos bp = base.add(dx, dy, dz);
+                    world.setBlockState(bp, net.minecraft.block.Blocks.BARRIER.getDefaultState());
+                    barriers.add(bp);
+                }
+            }
+        }
+        // 3秒后自动清除屏障
         p.getServer().execute(() -> {
-            if (world.getBlockState(pos).isOf(net.minecraft.block.Blocks.BARRIER)) {
-                world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState());
+            try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
+            for (BlockPos bp : barriers) {
+                if (world.getBlockState(bp).isOf(net.minecraft.block.Blocks.BARRIER)) {
+                    world.setBlockState(bp, net.minecraft.block.Blocks.AIR.getDefaultState());
+                }
             }
         });
     }
+
+    // 第三环暴击
     if (d.isActive(3)) {
         int lv = d.getLevel(3);
         double critMultiplier = 2.0 + (lv - 1) * 0.5;
@@ -175,12 +194,14 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
         totalDamage = critMultiplier * (d.getGlobalAttack() + d.getStrength() * 0.5);
         target.damage(p.getDamageSources().mobAttack(p), (float) totalDamage);
     }
+    // 第六环二次攻击
     if (d.isActive(6)) {
         float mul = 2.0f + (d.getLevel(6) - 1) * 0.8f;
         float extraDmg = mul * (float)(d.getGlobalAttack() + d.getStrength() * 0.5);
         totalDamage += extraDmg;
         target.damage(p.getDamageSources().mobAttack(p), extraDmg);
     }
+    // 第九环负面效果
     if (d.isActive(9)) {
         int dur = d.getDuration(9) == 0 ? (d.getLevel(9) < 10 ? 10 * 20 : 600 * 20) : d.getDuration(9);
         List<StatusEffectInstance> effects = Arrays.asList(
@@ -197,16 +218,19 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
             target.getWorld().spawnEntity(lightning);
         }
     }
+    // 第十环生命汲取（仅对已有额外伤害回血）
     if (d.isActive(10) && totalDamage > 0) p.heal((float) (totalDamage * 0.2));
     return totalDamage;
 }
 
 public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
-    if (d.isActive(10)) { p.heal(d.getKillHealAmount()); double mul = d.getKillMultiplier(); d.addCultivation((long) (20 * mul)); }
+    d.addCultivation(2);   // 固定击杀修为+2
+    if (d.isActive(10)) {
+        p.heal(d.getKillHealAmount());
+    }
     d.addKill();
 }
-
-public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float probInc, long cultivationInc, boolean isMeditating) {
+    public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float probInc, long cultivationInc, boolean isMeditating) {
     d.addCultivation(cultivationInc); boolean all10 = true;
     for (int i = 0; i < 10; i++) {
         if (!d.isUnlocked(i + 1)) { all10 = false; d.increaseChance(i, probInc); float effectiveChance = d.getEffectiveChance(i + 1, isMeditating); if (p.getRandom().nextFloat() < effectiveChance) { unlockBuff(p, d, i + 1); if (!d.hasAnyRing()) d.resetChancesForHardMode(); d.adjustChances(); } }
@@ -234,41 +258,42 @@ public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d)
     }
     return false;
 }
-        private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
-        d.setUnlocked(id, true); d.setActive(id, true); d.setLevel(id, 1);
-        if (id == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
-        if (id == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
-        if (id == 5) d.setDuration(id, 60 * 20);
-        double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
-        d.setGlobalAttack(newAttack);
-        d.onLevelUp(id);
-        p.sendMessage(Text.literal("领悟新环：" + BuffNames.NAME[id]), false);
-    }
 
-    private static void upgradeBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
-        d.setCultivation(d.getCultivation() - d.getUpgradeCost(id));
-        d.setLevel(id, d.getLevel(id) + 1);
-        d.setUpgradeCost(id, (long) Math.pow(200, d.getLevel(id)));
-        double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
-        d.setGlobalAttack(newAttack);
-        if (id == 1) { d.setMaxHealthBonus(d.getMaxHealthBonus() + 5); d.setRegenLevel(d.getLevel(id)); applyHealth(p, d); }
-        if (id == 10) { d.setKillHealAmount(d.getKillHealAmount() + 5); d.setKillMultiplier(Math.min(5.0, d.getKillMultiplier() + 0.5)); }
-        d.onLevelUp(id);
-        p.sendMessage(Text.literal(BuffNames.NAME[id] + " 升阶！"), false);
-    }
+private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
+    d.setUnlocked(id, true); d.setActive(id, true); d.setLevel(id, 1);
+    if (id == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
+    if (id == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
+    if (id == 5) d.setDuration(id, 60 * 20);
+    double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
+    d.setGlobalAttack(newAttack);
+    d.onLevelUp(id);
+    p.sendMessage(Text.literal("领悟新环：" + BuffNames.NAME[id]), false);
+}
 
-    public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
-        EntityAttributeInstance attr = p.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
-        if (attr != null) {
-            double bonus = d.getMaxHealthBonus() + d.getVitality() * 1.0;
-            EntityAttributeModifier mod = new EntityAttributeModifier(HEALTH_UUID, "xh_health", bonus, EntityAttributeModifier.Operation.ADDITION);
-            attr.removeModifier(mod);
-            attr.addPersistentModifier(mod);
-            p.setHealth(Math.min(p.getHealth(), p.getMaxHealth()));
-        }
-    }
+private static void upgradeBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
+    d.setCultivation(d.getCultivation() - d.getUpgradeCost(id));
+    d.setLevel(id, d.getLevel(id) + 1);
+    // 新升级成本：200 * 2^(新等级-1)
+    d.setUpgradeCost(id, (long) (200 * Math.pow(2, d.getLevel(id) - 1)));
+    double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
+    d.setGlobalAttack(newAttack);
+    if (id == 1) { d.setMaxHealthBonus(d.getMaxHealthBonus() + 5); d.setRegenLevel(d.getLevel(id)); applyHealth(p, d); }
+    if (id == 10) { d.setKillHealAmount(d.getKillHealAmount() + 5); d.setKillMultiplier(Math.min(5.0, d.getKillMultiplier() + 0.5)); }
+    d.onLevelUp(id);
+    p.sendMessage(Text.literal(BuffNames.NAME[id] + " 升阶！"), false);
+}
 
-    private static void giveRandomWeapon(ServerPlayerEntity p, PlayerBuffData d) {
+public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
+    EntityAttributeInstance attr = p.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
+    if (attr != null) {
+        double bonus = d.getMaxHealthBonus() + d.getVitality() * 1.0;
+        EntityAttributeModifier mod = new EntityAttributeModifier(HEALTH_UUID, "xh_health", bonus, EntityAttributeModifier.Operation.ADDITION);
+        attr.removeModifier(mod);
+        attr.addPersistentModifier(mod);
+        p.setHealth(Math.min(p.getHealth(), p.getMaxHealth()));
+    }
+}
+        private static void giveRandomWeapon(ServerPlayerEntity p, PlayerBuffData d) {
         for (ItemStack stack : p.getInventory().main) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
         for (ItemStack stack : p.getInventory().offHand) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
         int lv = d.getLevel(8);
