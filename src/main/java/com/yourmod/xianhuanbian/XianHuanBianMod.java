@@ -49,7 +49,7 @@ public void onInitialize() {
         BuffEventHandler.registerCommands(dispatcher);
     });
 
-    // 设置当前世界的独立数据目录（区分客户端/服务器，确保存档隔离）
+    // 独立存档路径设置（区分客户端/服务器）
     ServerLifecycleEvents.SERVER_STARTING.register(server -> {
         Path gameDir = FabricLoader.getInstance().getGameDir();
         String worldName = server.getSaveProperties().getLevelName();
@@ -79,6 +79,8 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
     for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
         PlayerBuffData data = PlayerBuffData.get(player);
         BuffEventHandler.applyActiveBuffs(player, data);
+        // 第七环观察者模式tick检查
+        BuffEventHandler.tickObserverMode(player, data);
         UUID id = player.getUuid();
         Vec3d cur = player.getPos();
         Vec3d last = lastPositions.get(id);
