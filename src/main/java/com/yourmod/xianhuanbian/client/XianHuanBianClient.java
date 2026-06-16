@@ -44,7 +44,7 @@ public class XianHuanBianClient implements ClientModInitializer {
 
     private static boolean localMeditating = false;
     private static boolean localRefilling = false;
- @Override
+    @Override
 public void onInitializeClient() {
     refillKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("回气", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "仙环变"));
     infoKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("属性", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Y, "仙环变"));
