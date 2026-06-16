@@ -39,12 +39,21 @@ public class XianHuanBianMod implements ModInitializer {
         Blocks.NETHER_QUARTZ_ORE, Blocks.NETHER_GOLD_ORE, Blocks.ANCIENT_DEBRIS
     ));
     @Override
-public void onInitialize() {
+    public void onInitialize() {
     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
         ToggleBuffCommand.register(dispatcher);
         BuffEventHandler.registerCommands(dispatcher);
     });
-
+    // 服务器启动时无需显式加载，因为玩家加入时会自动加载
+    // 服务器停止时保存所有在线数据
+    ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+    for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+        PlayerBuffData data = PlayerBuffData.SERVER_DATA.get(player.getUuid());
+        if (data != null) {
+            PlayerDataStorage.savePlayerData(player.getUuid(), data);
+            }
+        }
+    });
     ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
         ServerPlayerEntity player = handler.player;
         PlayerBuffData data = PlayerBuffData.getOrCreate(player);
@@ -55,7 +64,7 @@ public void onInitialize() {
         ServerPlayerEntity player = handler.player;
         PlayerBuffData data = PlayerBuffData.SERVER_DATA.remove(player.getUuid());
         if (data != null) {
-            PlayerDataPersistence.savePlayerData(player, data);
+        PlayerDataStorage.savePlayerData(player.getUuid(), data);
         }
     });
 
