@@ -38,55 +38,46 @@ public class XianHuanBianMod implements ModInitializer {
         Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE, Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE,
         Blocks.NETHER_QUARTZ_ORE, Blocks.NETHER_GOLD_ORE, Blocks.ANCIENT_DEBRIS
     ));
+
     @Override
     public void onInitialize() {
-    CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-        ToggleBuffCommand.register(dispatcher);
-        BuffEventHandler.registerCommands(dispatcher);
-    });
-    // 服务器启动时无需显式加载，因为玩家加入时会自动加载
-    // 服务器停止时保存所有在线数据
-    ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-    for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-        PlayerBuffData data = PlayerBuffData.SERVER_DATA.get(player.getUuid());
-        if (data != null) {
-            PlayerDataStorage.savePlayerData(player.getUuid(), data);
-            }
-        }
-    });
-    ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-        ServerPlayerEntity player = handler.player;
-        PlayerBuffData data = PlayerBuffData.getOrCreate(player);
-        syncToClient(player, data);
-    });
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            ToggleBuffCommand.register(dispatcher);
+            BuffEventHandler.registerCommands(dispatcher);
+        });
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+    ServerPlayerEntity player = handler.player;
+    PlayerBuffData data = PlayerBuffData.getOrCreate(player);
+    syncToClient(player, data);
+});
 
-    ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-        ServerPlayerEntity player = handler.player;
-        PlayerBuffData data = PlayerBuffData.SERVER_DATA.remove(player.getUuid());
-        if (data != null) {
+ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+    ServerPlayerEntity player = handler.player;
+    PlayerBuffData data = PlayerBuffData.SERVER_DATA.remove(player.getUuid());
+    if (data != null) {
         PlayerDataStorage.savePlayerData(player.getUuid(), data);
-        }
-    });
+    }
+});
 
-    ServerTickEvents.END_SERVER_TICK.register(server -> {
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            PlayerBuffData data = PlayerBuffData.get(player);
-            BuffEventHandler.applyActiveBuffs(player, data);
-            UUID id = player.getUuid();
-            Vec3d cur = player.getPos();
-            Vec3d last = lastPositions.get(id);
-            if (last != null) data.addWalkDist(cur.distanceTo(last));
-            lastPositions.put(id, cur);
-            data.checkExp(player.experienceLevel);
+ServerTickEvents.END_SERVER_TICK.register(server -> {
+    for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+        PlayerBuffData data = PlayerBuffData.get(player);
+        BuffEventHandler.applyActiveBuffs(player, data);
+        UUID id = player.getUuid();
+        Vec3d cur = player.getPos();
+        Vec3d last = lastPositions.get(id);
+        if (last != null) data.addWalkDist(cur.distanceTo(last));
+        lastPositions.put(id, cur);
+        data.checkExp(player.experienceLevel);
 
-            if (!data.hasAnyRing()) {
-                BuffEventHandler.tryUnlockFirstRing(player, data);
-            }
-            data.save(player);
-            if (player.age % 100 == 0) syncToClient(player, data);
+        if (!data.hasAnyRing()) {
+            BuffEventHandler.tryUnlockFirstRing(player, data);
         }
-    });
-    ServerPlayNetworking.registerGlobalReceiver(LEFT_CLICK_COUNT, (server, player, handler, buf, responseSender) -> {
+        data.save(player);
+        if (player.age % 100 == 0) syncToClient(player, data);
+    }
+});
+        ServerPlayNetworking.registerGlobalReceiver(LEFT_CLICK_COUNT, (server, player, handler, buf, responseSender) -> {
     server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addLeftClick(); });
 });
 
@@ -102,7 +93,8 @@ UseItemCallback.EVENT.register((player, world, hand) -> {
     }
     return TypedActionResult.pass(player.getStackInHand(hand));
 });
-    ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+
+ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
     if (source.getAttacker() instanceof ServerPlayerEntity sp) {
         PlayerBuffData data = PlayerBuffData.get(sp);
         if (!sp.getMainHandStack().isEmpty()) data.addItemKill();
@@ -123,8 +115,7 @@ AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> 
     }
     return ActionResult.PASS;
 });
-
-PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
+    PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
     if (!world.isClient && player instanceof ServerPlayerEntity sp) {
         PlayerBuffData data = PlayerBuffData.get(sp);
         data.addBreak();
@@ -133,6 +124,7 @@ PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -
         syncToClient(sp, data);
     }
 });
+
 UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
     if (!world.isClient && player instanceof ServerPlayerEntity sp) {
         if (player.getStackInHand(hand).getItem() instanceof AliasedBlockItem) {
