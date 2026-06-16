@@ -294,30 +294,30 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
     }
 }
         private static void giveRandomWeapon(ServerPlayerEntity p, PlayerBuffData d) {
-        for (ItemStack stack : p.getInventory().main) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
-        for (ItemStack stack : p.getInventory().offHand) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
-        int lv = d.getLevel(8);
-        List<Item> weapons = new ArrayList<>();
-        if (lv <= 1) weapons = Arrays.asList(Items.WOODEN_SWORD, Items.WOODEN_AXE, Items.STONE_SWORD, Items.STONE_AXE);
-        else if (lv <= 3) weapons = Arrays.asList(Items.IRON_SWORD, Items.IRON_AXE);
-        else if (lv <= 5) weapons = Arrays.asList(Items.DIAMOND_SWORD, Items.DIAMOND_AXE);
-        else weapons = Arrays.asList(Items.NETHERITE_SWORD, Items.NETHERITE_AXE);
-        if (RANDOM.nextBoolean()) weapons.add(Items.BOW);
-        if (RANDOM.nextBoolean()) weapons.add(Items.CROSSBOW);
-        Item chosen = weapons.get(RANDOM.nextInt(weapons.size()));
-        ItemStack weaponStack = new ItemStack(chosen);
-        weaponStack.setDamage(weaponStack.getMaxDamage() - 3);
-        weaponStack.getOrCreateNbt().putBoolean(WEAPON_TAG, true);
-        List<Enchantment> attackEnchants = Arrays.asList(Enchantments.SHARPNESS, Enchantments.KNOCKBACK, Enchantments.FIRE_ASPECT, Enchantments.LOOTING, Enchantments.SWEEPING);
-        Enchantment enchant = attackEnchants.get(RANDOM.nextInt(attackEnchants.size()));
-        if (enchant == Enchantments.SWEEPING && !(chosen instanceof SwordItem)) enchant = Enchantments.SHARPNESS;
-        weaponStack.addEnchantment(enchant, Math.min(lv, 10));
-        if (!p.getInventory().insertStack(weaponStack)) p.dropItem(weaponStack, false);
-        if (chosen == Items.BOW || chosen == Items.CROSSBOW) {
-            ItemStack arrows = new ItemStack(Items.ARROW, 3);
-            if (!p.getInventory().insertStack(arrows)) p.dropItem(arrows, false);
-        }
+    for (ItemStack stack : p.getInventory().main) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
+    for (ItemStack stack : p.getInventory().offHand) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
+    int lv = d.getLevel(8);
+    List<Item> weapons = new ArrayList<>();
+    if (lv <= 1) weapons = new ArrayList<>(Arrays.asList(Items.WOODEN_SWORD, Items.WOODEN_AXE, Items.STONE_SWORD, Items.STONE_AXE));
+    else if (lv <= 3) weapons = new ArrayList<>(Arrays.asList(Items.IRON_SWORD, Items.IRON_AXE));
+    else if (lv <= 5) weapons = new ArrayList<>(Arrays.asList(Items.DIAMOND_SWORD, Items.DIAMOND_AXE));
+    else weapons = new ArrayList<>(Arrays.asList(Items.NETHERITE_SWORD, Items.NETHERITE_AXE));
+    if (RANDOM.nextBoolean()) weapons.add(Items.BOW);
+    if (RANDOM.nextBoolean()) weapons.add(Items.CROSSBOW);
+    Item chosen = weapons.get(RANDOM.nextInt(weapons.size()));
+    ItemStack weaponStack = new ItemStack(chosen);
+    weaponStack.setDamage(weaponStack.getMaxDamage() - 3);
+    weaponStack.getOrCreateNbt().putBoolean(WEAPON_TAG, true);
+    List<Enchantment> attackEnchants = Arrays.asList(Enchantments.SHARPNESS, Enchantments.KNOCKBACK, Enchantments.FIRE_ASPECT, Enchantments.LOOTING, Enchantments.SWEEPING);
+    Enchantment enchant = attackEnchants.get(RANDOM.nextInt(attackEnchants.size()));
+    if (enchant == Enchantments.SWEEPING && !(chosen instanceof SwordItem)) enchant = Enchantments.SHARPNESS;
+    weaponStack.addEnchantment(enchant, Math.min(lv, 10));
+    if (!p.getInventory().insertStack(weaponStack)) p.dropItem(weaponStack, false);
+    if (chosen == Items.BOW || chosen == Items.CROSSBOW) {
+        ItemStack arrows = new ItemStack(Items.ARROW, 3);
+        if (!p.getInventory().insertStack(arrows)) p.dropItem(arrows, false);
     }
+}
 
     public static void giveWeaponOnActivate(ServerPlayerEntity p, PlayerBuffData d) {
         giveRandomWeapon(p, d);
