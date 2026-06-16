@@ -91,7 +91,7 @@ public class BuffEventHandler {
 
     private static void restoreDefaultAbilities(ServerPlayerEntity p, PlayerBuffData d) {
         if (p.isCreative() || p.isSpectator()) return;
-        // 只要第五环和第七环都不激活，才重置能力
+        // 只要第五环或第七环激活，就不重置能力
         if (!d.isActive(5) && !d.isActive(7)) {
             exitObserverMode(p);
         }
@@ -140,14 +140,14 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
             break;
         case 6: p.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, d.getDuration(id) > 0 ? d.getDuration(id) : 100, 0, false, false)); break;
         case 7:
-            // 第七环：可互动的水平面穿墙观察者
+            // 第七环：可互动的水平面穿墙观察者（带临时创造破坏）
             enterObserverMode(p);
             break;
         case 8: p.getServerWorld().getEntitiesByClass(LivingEntity.class, p.getBoundingBox().expand(16), e -> e != p)
                 .forEach(e -> e.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 40, 0, false, false))); break;
         case 12: p.getAbilities().invulnerable = true; p.sendAbilitiesUpdate(); break;
     }
-}
+    }
     public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
 
@@ -332,24 +332,28 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
         player.getAbilities().flying = false;
         player.noClip = true;
         player.setOnGround(false);
+        // 生存/冒险玩家获得临时创造破坏能力
+        if (!player.isCreative() && !player.isSpectator()) {
+            player.getAbilities().creativeMode = true;
+        }
         player.sendAbilitiesUpdate();
     }
 
     private static void exitObserverMode(ServerPlayerEntity player) {
+        player.getAbilities().invulnerable = false;
+        player.getAbilities().allowFlying = false;
+        player.getAbilities().flying = false;
+        player.noClip = false;
+        player.setOnGround(true);
         if (!player.isCreative() && !player.isSpectator()) {
-            player.getAbilities().invulnerable = false;
-            player.getAbilities().allowFlying = false;
-            player.getAbilities().flying = false;
-            player.noClip = false;
-            player.setOnGround(true);
-            player.sendAbilitiesUpdate();
+            player.getAbilities().creativeMode = false;
         }
+        player.sendAbilitiesUpdate();
     }
 
     public static void tickObserverMode(ServerPlayerEntity player, PlayerBuffData data) {
         if (!data.isActive(7)) return;
-        int dur = data.getDuration(7);
-        if (dur <= 0) {
+        if (data.getDuration(7) <= 0) {
             exitObserverMode(player);
             data.setActive(7, false);
         }
