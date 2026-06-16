@@ -46,22 +46,23 @@ public class PlayerBuffData {
             upgradeCost[i] = (i == 1) ? 200 : (long) Math.pow(200, i);
         }
     }
+
     public static PlayerBuffData get(ServerPlayerEntity player) {
-    return getOrCreate(player);
-}
+        return getOrCreate(player);
+    }
 
-public static PlayerBuffData getOrCreate(ServerPlayerEntity player) {
-    return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> PlayerDataStorage.loadPlayerData(uuid));
-}
+    public static PlayerBuffData getOrCreate(ServerPlayerEntity player) {
+        return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> PlayerDataStorage.loadPlayerData(uuid));
+    }
 
-public void save(ServerPlayerEntity player) {
-    SERVER_DATA.put(player.getUuid(), this);
-}
+    public void save(ServerPlayerEntity player) {
+        SERVER_DATA.put(player.getUuid(), this);
+    }
 
-public static void reset(ServerPlayerEntity player) {
-    SERVER_DATA.remove(player.getUuid());
-    PlayerDataStorage.remove(player.getUuid());
-}
+    public static void reset(ServerPlayerEntity player) {
+        SERVER_DATA.remove(player.getUuid());
+        PlayerDataStorage.remove(player.getUuid());
+    }
     public boolean isUnlocked(int id) { return unlocked[id]; }
 public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
 public boolean isActive(int id) { return active[id]; }
