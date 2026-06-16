@@ -15,8 +15,7 @@ public class PlayerDataStorage {
     public static void setWorldPath(Path worldPath) {
         SAVE_DIR = worldPath.resolve("xianhuanbian/playerdata");
     }
-
-    public static void savePlayerData(UUID uuid, PlayerBuffData data) {
+        public static void savePlayerData(UUID uuid, PlayerBuffData data) {
         try {
             Files.createDirectories(SAVE_DIR);
             File file = SAVE_DIR.resolve(uuid.toString() + ".dat").toFile();
