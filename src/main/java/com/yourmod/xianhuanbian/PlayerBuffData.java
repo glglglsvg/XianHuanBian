@@ -132,8 +132,8 @@ public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) ret
 
 public void applyBehaviorChances() {
     for (int i = 1; i <= 10; i++) {
-        if (behaviorDone[i]) chance[i] = 0.2f;
-        else chance[i] = 0.0f;
+        if (behaviorDone[i]) chance[i] = 0.2f;      // 完成行为后概率20%
+        else chance[i] = 0.000001f;                  // 未完成行为时极低
     }
 }
 
