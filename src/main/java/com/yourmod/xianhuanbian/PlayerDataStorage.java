@@ -4,7 +4,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
 import net.fabricmc.loader.api.FabricLoader;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
@@ -15,18 +15,20 @@ public class PlayerDataStorage {
     public static void savePlayerData(UUID uuid, PlayerBuffData data) {
         try {
             Files.createDirectories(SAVE_DIR);
-            Path file = SAVE_DIR.resolve(uuid.toString() + ".dat");
-            NbtIo.writeCompressed(data.toNbt(), file);
+            File file = SAVE_DIR.resolve(uuid.toString() + ".dat").toFile();
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                NbtIo.writeCompressed(data.toNbt(), fos);
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public static PlayerBuffData loadPlayerData(UUID uuid) {
-        Path file = SAVE_DIR.resolve(uuid.toString() + ".dat");
-        if (Files.exists(file)) {
-            try {
-                NbtCompound tag = NbtIo.readCompressed(file, net.minecraft.nbt.NbtSizeTracker.ofUnlimitedBytes());
+        File file = SAVE_DIR.resolve(uuid.toString() + ".dat").toFile();
+        if (file.exists()) {
+            try (FileInputStream fis = new FileInputStream(file)) {
+                NbtCompound tag = NbtIo.readCompressed(fis);
                 return PlayerBuffData.fromNbt(tag);
             } catch (IOException e) {
                 e.printStackTrace();
