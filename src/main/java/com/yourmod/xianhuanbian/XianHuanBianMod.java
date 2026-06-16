@@ -2,11 +2,11 @@ package com.yourmod.xianhuanbian;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.*;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.*;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.TypedActionResult;
@@ -16,6 +16,8 @@ import net.minecraft.item.*;
 import net.minecraft.block.*;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import java.nio.file.Path;
+import net.minecraft.world.level.storage.WorldSavePath;
 import java.util.*;
 
 public class XianHuanBianMod implements ModInitializer {
@@ -41,16 +43,17 @@ public class XianHuanBianMod implements ModInitializer {
     ));
 
     @Override
-    public void onInitialize() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-            ToggleBuffCommand.register(dispatcher);
-            BuffEventHandler.registerCommands(dispatcher);
-        });
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-    ServerPlayerEntity player = handler.player;
-    PlayerBuffData data = PlayerBuffData.getOrCreate(player);
-    syncToClient(player, data);
-});
+public void onInitialize() {
+    CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+        ToggleBuffCommand.register(dispatcher);
+        BuffEventHandler.registerCommands(dispatcher);
+    });
+
+    // 设置当前世界的独立数据目录（避免跨存档继承）
+    ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+        Path worldPath = server.getSavePath(WorldSavePath.ROOT);
+        PlayerDataStorage.setWorldPath(worldPath);
+    });
         
 ServerLifecycleEvents.SERVER_STARTING.register(server -> {
     // 通过主世界获取世界根目录，避免使用 WorldSavePath
