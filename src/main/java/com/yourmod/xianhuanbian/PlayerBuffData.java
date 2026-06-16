@@ -43,7 +43,7 @@ public class PlayerBuffData {
         Arrays.fill(chance, 0.0f);
         for (int i = 1; i <= 12; i++) {
             levels[i] = 1;
-            upgradeCost[i] = 200;          // 所有环初始升级成本 200
+            upgradeCost[i] = 200;          // 初始升级成本 200
         }
     }
 
