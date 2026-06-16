@@ -143,7 +143,7 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
             break;
         case 6: p.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, d.getDuration(id) > 0 ? d.getDuration(id) : 100, 0, false, false)); break;
         case 7:
-            // 第七环：穿墙+无敌，禁止飞行，有时间限制
+            // 第七环：可互动的穿墙观察者（无飞行，显示玩家实体）
             p.getAbilities().allowFlying = false;
             p.getAbilities().flying = false;
             p.getAbilities().invulnerable = true;
@@ -159,25 +159,37 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
     public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
 
-    // 第五环 - 清除目标周围方块 (等级决定范围，1级2x2，2级3x3...)
+    // 第五环 - 空气屏障窒息 + 范围清除
     if (d.isActive(5)) {
         int lv = d.getLevel(5);
-        int size = 1 + lv;                          // 1级 = 2，2级 = 3，以此类推
         World world = p.getWorld();
-        BlockPos center = target.getBlockPos();
-        int half = size / 2;
-        for (int dx = -half; dx <= half; dx++) {
-            for (int dz = -half; dz <= half; dz++) {
-                for (int dy = 0; dy < 3; dy++) {
-                    BlockPos bp = center.add(dx, dy, dz);
-                    if (world.getBlockState(bp).getHardness(world, bp) >= 0) {
-                        world.breakBlock(bp, true);
+        BlockPos pos = target.getBlockPos();
+        // 生成2格高屏障，强制重合造成窒息
+        world.setBlockState(pos, net.minecraft.block.Blocks.BARRIER.getDefaultState());
+        world.setBlockState(pos.up(), net.minecraft.block.Blocks.BARRIER.getDefaultState());
+        // 2秒后移除屏障并破坏周围方块（范围随等级提升，最大半径5）
+        int radius = Math.min(lv, 5);   // 1级半径1格，10级半径5格
+        p.getServer().execute(() -> {
+            try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+            // 移除屏障
+            if (world.getBlockState(pos).isOf(net.minecraft.block.Blocks.BARRIER)) {
+                world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState());
+            }
+            if (world.getBlockState(pos.up()).isOf(net.minecraft.block.Blocks.BARRIER)) {
+                world.setBlockState(pos.up(), net.minecraft.block.Blocks.AIR.getDefaultState());
+            }
+            // 破坏周围方块
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    for (int dy = -1; dy <= 2; dy++) { // 高度范围：脚下一格到头顶两格
+                        BlockPos bp = pos.add(dx, dy, dz);
+                        if (world.getBlockState(bp).getHardness(world, bp) >= 0) {
+                            world.breakBlock(bp, true);
+                        }
                     }
                 }
             }
-        }
-        // 清除后造成少量伤害
-        target.damage(p.getDamageSources().mobAttack(p), (float)(d.getGlobalAttack() * 0.2));
+        });
     }
 
     // 第三环暴击
@@ -218,7 +230,7 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
 }
 
 public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
-    d.addCultivation(2);   // 固定击杀修为 +2
+    d.addCultivation(2);
     if (d.isActive(10)) {
         p.heal(d.getKillHealAmount());
     }
@@ -242,7 +254,7 @@ public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d)
             if (i == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
             if (i == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
             if (i == 5) d.setDuration(i, 60 * 20);
-            if (i == 7) { d.setMaxDuration(7, 1); d.activate(7, 1); }   // 第七环开启时间限制
+            if (i == 7) { d.setMaxDuration(7, 1); d.activate(7, 1); }
             double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
             d.setGlobalAttack(newAttack);
             d.onLevelUp(i);
@@ -259,7 +271,7 @@ private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
     if (id == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
     if (id == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
     if (id == 5) d.setDuration(id, 60 * 20);
-    if (id == 7) { d.setMaxDuration(7, 1); d.activate(7, 1); }   // 第七环开启时间限制
+    if (id == 7) { d.setMaxDuration(7, 1); d.activate(7, 1); }
     double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
     d.setGlobalAttack(newAttack);
     d.onLevelUp(id);
@@ -269,7 +281,7 @@ private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
 private static void upgradeBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
     d.setCultivation(d.getCultivation() - d.getUpgradeCost(id));
     d.setLevel(id, d.getLevel(id) + 1);
-    d.setUpgradeCost(id, (long) (200 * Math.pow(2, d.getLevel(id) - 1)));   // 成本翻倍
+    d.setUpgradeCost(id, (long) (200 * Math.pow(2, d.getLevel(id) - 1)));
     double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
     d.setGlobalAttack(newAttack);
     if (id == 1) { d.setMaxHealthBonus(d.getMaxHealthBonus() + 5); d.setRegenLevel(d.getLevel(id)); applyHealth(p, d); }
@@ -288,7 +300,7 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
         p.setHealth(Math.min(p.getHealth(), p.getMaxHealth()));
     }
 }
-        private static void giveRandomWeapon(ServerPlayerEntity p, PlayerBuffData d) {
+      private static void giveRandomWeapon(ServerPlayerEntity p, PlayerBuffData d) {
         for (ItemStack stack : p.getInventory().main) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
         for (ItemStack stack : p.getInventory().offHand) if (stack.hasNbt() && stack.getNbt().contains(WEAPON_TAG)) return;
         int lv = d.getLevel(8);
