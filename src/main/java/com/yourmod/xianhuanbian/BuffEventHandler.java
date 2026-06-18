@@ -91,7 +91,6 @@ public class BuffEventHandler {
 
     private static void restoreDefaultAbilities(ServerPlayerEntity p, PlayerBuffData d) {
         if (p.isCreative() || p.isSpectator()) return;
-        // 只要第五环或第七环激活，就不重置能力
         if (!d.isActive(5) && !d.isActive(7)) {
             exitObserverMode(p);
         }
@@ -140,26 +139,23 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
             break;
         case 6: p.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, d.getDuration(id) > 0 ? d.getDuration(id) : 100, 0, false, false)); break;
         case 7:
-            // 第七环：可互动的水平面穿墙观察者（带临时创造破坏）
             enterObserverMode(p);
             break;
         case 8: p.getServerWorld().getEntitiesByClass(LivingEntity.class, p.getBoundingBox().expand(16), e -> e != p)
                 .forEach(e -> e.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 40, 0, false, false))); break;
         case 12: p.getAbilities().invulnerable = true; p.sendAbilitiesUpdate(); break;
     }
-    }
+}
     public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
 
-    // 第五环 - 爆炸伤害（威力=等级，1级破坏1方块，2级2×2...）
     if (d.isActive(5)) {
         int lv = d.getLevel(5);
-        float power = (float) lv;                   // 1级威力1，2级威力2...
+        float power = (float) lv;
         World world = p.getWorld();
         world.createExplosion(p, target.getX(), target.getY(), target.getZ(), power, true, World.ExplosionSourceType.MOB);
     }
 
-    // 第三环暴击
     if (d.isActive(3)) {
         int lv = d.getLevel(3);
         double critMultiplier = 2.0 + (lv - 1) * 0.5;
@@ -167,14 +163,12 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
         totalDamage = critMultiplier * (d.getGlobalAttack() + d.getStrength() * 0.5);
         target.damage(p.getDamageSources().mobAttack(p), (float) totalDamage);
     }
-    // 第六环二次攻击
     if (d.isActive(6)) {
         float mul = 2.0f + (d.getLevel(6) - 1) * 0.8f;
         float extraDmg = mul * (float)(d.getGlobalAttack() + d.getStrength() * 0.5);
         totalDamage += extraDmg;
         target.damage(p.getDamageSources().mobAttack(p), extraDmg);
     }
-    // 第九环负面效果
     if (d.isActive(9)) {
         int dur = d.getDuration(9) == 0 ? (d.getLevel(9) < 10 ? 10 * 20 : 600 * 20) : d.getDuration(9);
         List<StatusEffectInstance> effects = Arrays.asList(
@@ -191,7 +185,6 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
             target.getWorld().spawnEntity(lightning);
         }
     }
-    // 第十环生命汲取
     if (d.isActive(10) && totalDamage > 0) p.heal((float) (totalDamage * 0.2));
     return totalDamage;
 }
@@ -233,7 +226,7 @@ public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d)
     return false;
 }
 
-private static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
+public static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
     d.setUnlocked(id, true); d.setActive(id, true); d.setLevel(id, 1);
     if (id == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
     if (id == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
@@ -282,10 +275,15 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
         ItemStack weaponStack = new ItemStack(chosen);
         weaponStack.setDamage(weaponStack.getMaxDamage() - 3);
         weaponStack.getOrCreateNbt().putBoolean(WEAPON_TAG, true);
-        List<Enchantment> attackEnchants = Arrays.asList(Enchantments.SHARPNESS, Enchantments.KNOCKBACK, Enchantments.FIRE_ASPECT, Enchantments.LOOTING, Enchantments.SWEEPING);
+
+        List<Enchantment> attackEnchants = Arrays.asList(
+            Enchantments.SHARPNESS, Enchantments.KNOCKBACK, Enchantments.FIRE_ASPECT,
+            Enchantments.LOOTING, Enchantments.SWEEPING
+        );
         Enchantment enchant = attackEnchants.get(RANDOM.nextInt(attackEnchants.size()));
         if (enchant == Enchantments.SWEEPING && !(chosen instanceof SwordItem)) enchant = Enchantments.SHARPNESS;
         weaponStack.addEnchantment(enchant, Math.min(lv, 10));
+
         if (!p.getInventory().insertStack(weaponStack)) p.dropItem(weaponStack, false);
         if (chosen == Items.BOW || chosen == Items.CROSSBOW) {
             ItemStack arrows = new ItemStack(Items.ARROW, 3);
@@ -325,14 +323,12 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
         );
     }
 
-    // ---------- 第七环观察者模式辅助方法 ----------
     private static void enterObserverMode(ServerPlayerEntity player) {
         player.getAbilities().invulnerable = true;
         player.getAbilities().allowFlying = false;
         player.getAbilities().flying = false;
         player.noClip = true;
         player.setOnGround(false);
-        // 生存/冒险玩家获得临时创造破坏能力
         if (!player.isCreative() && !player.isSpectator()) {
             player.getAbilities().creativeMode = true;
         }
