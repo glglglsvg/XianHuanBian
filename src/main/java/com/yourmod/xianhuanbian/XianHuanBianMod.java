@@ -83,6 +83,27 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
         BuffEventHandler.tickObserverMode(player, data);
         // 仪式检测暂时禁用
         // RitualDetector.checkAllRituals(player, data);
+
+        // ===== 第八环：背包工具/武器数量检测 =====
+        if (!data.hasAnyRing() && !data.isBehaviorDone(8)) {
+            int toolCount = 0;
+            for (ItemStack stack : player.getInventory().main) {
+                if (stack.getItem() instanceof ToolItem || stack.getItem() instanceof SwordItem) {
+                    toolCount += stack.getCount();
+                }
+            }
+            // 副手也检查一下
+            ItemStack offhand = player.getOffHandStack();
+            if (offhand.getItem() instanceof ToolItem || offhand.getItem() instanceof SwordItem) {
+                toolCount += offhand.getCount();
+            }
+            if (toolCount >= 15) {
+                data.setBehaviorDone(8);   // 标记行为完成
+                data.save(player);
+                syncToClient(player, data);
+            }
+        }
+
         UUID id = player.getUuid();
         Vec3d cur = player.getPos();
         Vec3d last = lastPositions.get(id);
@@ -95,18 +116,6 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
         }
         data.save(player);
         if (player.age % 100 == 0) syncToClient(player, data);
-    }
-});
-
-// ===== 第八环制作工具/武器计数 =====
-ItemCraftedCallback.EVENT.register((player, stack, grid) -> {
-    if (player instanceof ServerPlayerEntity sp) {
-        if (stack.getItem() instanceof ToolItem || stack.getItem() instanceof SwordItem) {
-            PlayerBuffData data = PlayerBuffData.get(sp);
-            data.addCraftTool();   // 累加制作次数，满15次后标记 behaviorDone[8]=true
-            data.save(sp);
-            syncToClient(sp, data);
-        }
     }
 });
     ServerPlayNetworking.registerGlobalReceiver(LEFT_CLICK_COUNT, (server, player, handler, buf, responseSender) -> {
