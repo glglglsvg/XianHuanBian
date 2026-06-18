@@ -23,6 +23,7 @@ import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFW;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 public class XianHuanBianClient implements ClientModInitializer {
     private static final Vector3f[] COLORS = new Vector3f[]{
@@ -44,6 +45,7 @@ public class XianHuanBianClient implements ClientModInitializer {
 
     private static boolean localMeditating = false;
     private static boolean localRefilling = false;
+    private static final Random RAND = new Random();
     @Override
 public void onInitializeClient() {
     refillKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("回气", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "仙环变"));
@@ -112,6 +114,7 @@ public void onInitializeClient() {
     }
     for (int i = 1; i <= 12; i++) if (d.isActive(i)) spawnPlayerRing(client, client.player, i, COLORS[i]);
 
+    // 左键计数（空挥和命中均有效）
     if (client.options.attackKey.wasPressed()) {
         ClientPlayNetworking.send(XianHuanBianMod.LEFT_CLICK_COUNT, PacketByteBufs.empty());
     }
@@ -122,7 +125,6 @@ public void onInitializeClient() {
         if (localMeditating) {
             hud.append("【修炼中】 ");
         }
-        // 显示限时环的剩余时间
         for (int i = 1; i <= 12; i++) {
             if (d.isActive(i) && d.getMaxDuration(i) > 0) {
                 int remainingSeconds = d.getDuration(i) / 20;
@@ -139,43 +141,60 @@ public void onInitializeClient() {
         client.player.sendMessage(Text.literal(hud.toString()), true);
     });
 }
-        private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
-        double y = pl.getY() + 1.0, rad = 0.5 + (id - 1) * 0.08;
-        var effect = new DustParticleEffect(col, 0.2f);
-        for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); cl.world.addParticle(effect, pl.getX() + rad * Math.cos(a), y, pl.getZ() + rad * Math.sin(a), 0, 0, 0); }
-        var white = new DustParticleEffect(new Vector3f(1, 1, 1), 0.1f);
-        for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); double x = pl.getX() + rad * Math.cos(a), z = pl.getZ() + rad * Math.sin(a); cl.world.addParticle(white, x, y, z, 0, 0, 0); }
-    }
-    private void spawnAttackRing(MinecraftClient cl, LivingEntity target) {
-        double y = target.getY() + target.getHeight() / 2.0, rad = 0.3;
-        var color = new Vector3f(1, 0.5f, 0); var effect = new DustParticleEffect(color, PARTICLE_SIZE);
-        for (int j = 0; j < PARTICLE_COUNT; j++) { double a = (2 * Math.PI / PARTICLE_COUNT) * j + (target.age * 0.1); cl.world.addParticle(effect, target.getX() + rad * Math.cos(a), y, target.getZ() + rad * Math.sin(a), 0, 0, 0); }
-        var verticalColor = new Vector3f(1, 0.8f, 0); var verticalEffect = new DustParticleEffect(verticalColor, PARTICLE_SIZE * 0.8f);
-        for (int j = 0; j < PARTICLE_COUNT; j++) { double angle = (2 * Math.PI / PARTICLE_COUNT) * j; double offsetY = rad * Math.sin(angle), offsetXZ = rad * Math.cos(angle); cl.world.addParticle(verticalEffect, target.getX() + offsetXZ * 0.5, target.getY() + offsetY * 0.5 + target.getHeight()/2.0, target.getZ() + offsetXZ * 0.5, 0, 0, 0); }
-    }
+    private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
+    double y = pl.getY() + 1.0, rad = 0.5 + (id - 1) * 0.08;
+    var effect = new DustParticleEffect(col, 0.2f);
+    for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); cl.world.addParticle(effect, pl.getX() + rad * Math.cos(a), y, pl.getZ() + rad * Math.sin(a), 0, 0, 0); }
+    var white = new DustParticleEffect(new Vector3f(1, 1, 1), 0.1f);
+    for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); double x = pl.getX() + rad * Math.cos(a), z = pl.getZ() + rad * Math.sin(a); cl.world.addParticle(white, x, y, z, 0, 0, 0); }
+}
 
-    private void spawnHorizontalRing(MinecraftClient cl, LivingEntity target) {
-        double y = target.getY() + target.getHeight() / 2.0;
-        double rad = 0.3;
-        var color = new Vector3f(0.5f, 1.0f, 0.5f);
-        var effect = new DustParticleEffect(color, 0.5f);
-        for (int j = 0; j < 12; j++) {
-            double angle = (2 * Math.PI / 12) * j + (target.age * 0.1);
-            double x = target.getX() + rad * Math.cos(angle);
-            double z = target.getZ() + rad * Math.sin(angle);
-            cl.world.addParticle(effect, x, y, z, Math.cos(angle)*0.05, 0, Math.sin(angle)*0.05);
-        }
-        rad = 0.5;
-        effect = new DustParticleEffect(new Vector3f(0.3f, 0.8f, 1.0f), 0.4f);
-        for (int j = 0; j < 12; j++) {
-            double angle = (2 * Math.PI / 12) * j + (target.age * 0.1);
-            double x = target.getX() + rad * Math.cos(angle);
-            double z = target.getZ() + rad * Math.sin(angle);
-            cl.world.addParticle(effect, x, y, z, Math.cos(angle)*0.02, 0, Math.sin(angle)*0.02);
+private void spawnAttackRing(MinecraftClient cl, LivingEntity target) {
+    PlayerBuffData d = PlayerBuffData.getClient();
+    double baseY = target.getY() + target.getHeight() / 2.0;
+    // 遍历所有激活的环，生成对应颜色的爆炸粒子
+    for (int id = 1; id <= 12; id++) {
+        if (d.isActive(id) && COLORS[id] != null) {
+            Vector3f color = COLORS[id];
+            // 随机粒子数量 8~16
+            int count = 8 + RAND.nextInt(9);
+            for (int j = 0; j < count; j++) {
+                // 随机方向与距离（模拟爆炸扩散）
+                double angle = RAND.nextDouble() * Math.PI * 2;
+                double pitch = (RAND.nextDouble() - 0.5) * Math.PI; // 垂直角度
+                double speed = 0.15 + RAND.nextDouble() * 0.25;
+                double dx = Math.cos(angle) * Math.cos(pitch) * speed;
+                double dy = Math.sin(pitch) * speed;
+                double dz = Math.sin(angle) * Math.cos(pitch) * speed;
+                cl.world.addParticle(new DustParticleEffect(color, 0.5f + RAND.nextFloat() * 0.5f),
+                    target.getX(), baseY, target.getZ(), dx, dy, dz);
+            }
         }
     }
+}
 
-    private static class AttributeScreen extends Screen {
+private void spawnHorizontalRing(MinecraftClient cl, LivingEntity target) {
+    PlayerBuffData d = PlayerBuffData.getClient();
+    double baseY = target.getY() + target.getHeight() / 2.0;
+    // 遍历激活环，生成水平环状粒子（随机半径）
+    for (int id = 1; id <= 12; id++) {
+        if (d.isActive(id) && COLORS[id] != null) {
+            Vector3f color = COLORS[id];
+            double rad = 0.5 + RAND.nextDouble() * 0.5;
+            int count = 12 + RAND.nextInt(8);
+            for (int j = 0; j < count; j++) {
+                double angle = (2 * Math.PI / count) * j + RAND.nextDouble() * 0.5;
+                double x = target.getX() + rad * Math.cos(angle);
+                double z = target.getZ() + rad * Math.sin(angle);
+                // 随机微小的垂直扩散
+                double dy = (RAND.nextDouble() - 0.5) * 0.2;
+                cl.world.addParticle(new DustParticleEffect(color, 0.4f),
+                    x, baseY + dy, z, 0, 0, 0);
+            }
+        }
+    }
+}
+        private static class AttributeScreen extends Screen {
         private final PlayerBuffData data;
         private ButtonWidget strButton, spdButton, vitButton;
 
