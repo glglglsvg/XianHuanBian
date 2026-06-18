@@ -18,6 +18,7 @@ import net.minecraft.item.*;
 import net.minecraft.block.*;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.text.Text;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -49,6 +50,7 @@ public void onInitialize() {
         BuffEventHandler.registerCommands(dispatcher);
     });
 
+    // 独立存档路径
     ServerLifecycleEvents.SERVER_STARTING.register(server -> {
         Path gameDir = FabricLoader.getInstance().getGameDir();
         String worldName = server.getSaveProperties().getLevelName();
@@ -79,7 +81,7 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
         PlayerBuffData data = PlayerBuffData.get(player);
         BuffEventHandler.applyActiveBuffs(player, data);
         BuffEventHandler.tickObserverMode(player, data);
-        // 暂时禁用仪式检测
+        // 仪式检测暂时禁用
         // RitualDetector.checkAllRituals(player, data);
         UUID id = player.getUuid();
         Vec3d cur = player.getPos();
@@ -96,12 +98,12 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
     }
 });
 
-// 制作工具/武器计数（第八环）
+// ===== 第八环制作工具/武器计数 =====
 ItemCraftedCallback.EVENT.register((player, stack, grid) -> {
     if (player instanceof ServerPlayerEntity sp) {
         if (stack.getItem() instanceof ToolItem || stack.getItem() instanceof SwordItem) {
             PlayerBuffData data = PlayerBuffData.get(sp);
-            data.addCraftTool();
+            data.addCraftTool();   // 累加制作次数，满15次后标记 behaviorDone[8]=true
             data.save(sp);
             syncToClient(sp, data);
         }
