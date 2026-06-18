@@ -43,7 +43,7 @@ public class PlayerBuffData {
         Arrays.fill(chance, 0.0f);
         for (int i = 1; i <= 12; i++) {
             levels[i] = 1;
-            upgradeCost[i] = 200;          // 初始升级成本 200
+            upgradeCost[i] = 200;
         }
     }
 
@@ -119,7 +119,7 @@ public void setMeditateTimer(int v) { meditateTimer = v; }
 public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
 public void setBehaviorDone(int id) { behaviorDone[id] = true; }
     public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
-public void addLeftClick() { if (!hasAnyRing() && !behaviorDone[2]) { leftClickCount++; if (leftClickCount >= 100) setBehaviorDone(2); } }
+public void addLeftClick() { if (!hasAnyRing() && !behaviorDone[2]) { leftClickCount++; if (leftClickCount >= 300) setBehaviorDone(2); } }
 public void addItemKill() { if (!hasAnyRing() && !behaviorDone[3]) { itemKillCount++; if (itemKillCount >= 15) setBehaviorDone(3); } }
 public void addWalkDist(double d) { if (!hasAnyRing() && !behaviorDone[4]) { walkDist += d; if (walkDist >= 150) setBehaviorDone(4); } }
 public void addBreak() { if (!hasAnyRing() && !behaviorDone[5]) { breakCount++; if (breakCount >= 49) setBehaviorDone(5); } }
@@ -129,39 +129,39 @@ public void addCraftTool() { if (!hasAnyRing() && !behaviorDone[8]) { craftToolC
 public void addFireWater() { if (!hasAnyRing() && !behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= 28) setBehaviorDone(9); } }
 public void checkExp(float level) { if (!hasAnyRing() && !behaviorDone[10] && level >= 2.0f) setBehaviorDone(10); }
 public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
-
-public void applyBehaviorChances() {
-    for (int i = 1; i <= 10; i++) {
-        if (behaviorDone[i]) chance[i] = 0.2f;      // 完成行为后概率20%
-        else chance[i] = 0.000001f;                  // 未完成行为时极低
+        public void applyBehaviorChances() {
+        for (int i = 1; i <= 10; i++) {
+            if (behaviorDone[i]) chance[i] = 0.2f;
+            else chance[i] = 0.000001f;
+        }
     }
-}
 
-public void resetChancesForHardMode() { Arrays.fill(chance, 0.0f); adjustChances(); }
-public float getEffectiveChance(int id, boolean isMeditating) {
-    float base = chance[id];
-    if (isMeditating) base *= 3.0f;
-    int unlockedCount = 0;
-    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
-    if (unlockedCount >= 2) base *= 0.1f;
-    return Math.min(base, 1.0f);
-}
-public void adjustChances() {
-    int unlockedCount = 0;
-    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
-    if (unlockedCount >= 2) for (int i = 1; i <= 10; i++) if (!unlocked[i]) chance[i] = 0.000001f / unlockedCount;
-}
-public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f); energy = Math.min(energy, maxEnergy); }
-private int calcDuration(int level, int baseMin) { if (level >= 10) return 0; return baseMin * 20 + (level - 1) * (baseMin / 9) * 20; }
-public void activate(int id, int baseMin) { setActive(id, true); if (baseMin == 0) setDuration(id, 0); else setDuration(id, calcDuration(getLevel(id), baseMin)); }
-public void onLevelUp(int id) { upgradeEnergy(); if (maxDurations[id] != 0) { int lv = getLevel(id); if (lv >= 10) setDuration(id, 0); else setDuration(id, calcDuration(lv, 60)); } }
+    public void resetChancesForHardMode() { Arrays.fill(chance, 0.0f); adjustChances(); }
+    public float getEffectiveChance(int id, boolean isMeditating) {
+        float base = chance[id];
+        if (isMeditating) base *= 3.0f;
+        int unlockedCount = 0;
+        for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+        if (unlockedCount >= 2) base *= 0.1f;
+        return Math.min(base, 1.0f);
+    }
+    public void adjustChances() {
+        int unlockedCount = 0;
+        for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+        if (unlockedCount >= 2) for (int i = 1; i <= 10; i++) if (!unlocked[i]) chance[i] = 0.000001f / unlockedCount;
+    }
+    public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f); energy = Math.min(energy, maxEnergy); }
+    private int calcDuration(int level, int baseMin) { if (level >= 10) return 0; return baseMin * 20 + (level - 1) * (baseMin / 9) * 20; }
+    public void activate(int id, int baseMin) { setActive(id, true); if (baseMin == 0) setDuration(id, 0); else setDuration(id, calcDuration(getLevel(id), baseMin)); }
+    public void onLevelUp(int id) { upgradeEnergy(); if (maxDurations[id] != 0) { int lv = getLevel(id); if (lv >= 10) setDuration(id, 0); else setDuration(id, calcDuration(lv, 60)); } }
 
-public float getCurrentChance(int id) {
-    float base = 0.00001f;
-    if (behaviorDone[id]) base += 0.1f;
-    return base;
-}
-        public static PlayerBuffData getClient() { return CLIENT_CACHE; }
+    public float getCurrentChance(int id) {
+        float base = 0.00001f;
+        if (behaviorDone[id]) base += 0.1f;
+        return base;
+    }
+
+    public static PlayerBuffData getClient() { return CLIENT_CACHE; }
     public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
 
     public static PlayerBuffData fromNbt(NbtCompound tag) {
@@ -211,4 +211,4 @@ public float getCurrentChance(int id) {
         tag.putInt("medTimer", meditateTimer);
         return tag;
     }
-}
+}                                                                                                 
