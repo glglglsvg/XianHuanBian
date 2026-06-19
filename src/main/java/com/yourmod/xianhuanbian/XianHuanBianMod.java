@@ -50,7 +50,7 @@ public void onInitialize() {
         BuffEventHandler.registerCommands(dispatcher);
     });
 
-    // 独立存档路径
+    // 独立存档路径（最优先设置，防止后续误用默认路径）
     ServerLifecycleEvents.SERVER_STARTING.register(server -> {
         Path gameDir = FabricLoader.getInstance().getGameDir();
         String worldName = server.getSaveProperties().getLevelName();
@@ -81,10 +81,8 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
         PlayerBuffData data = PlayerBuffData.get(player);
         BuffEventHandler.applyActiveBuffs(player, data);
         BuffEventHandler.tickObserverMode(player, data);
-        // 仪式检测暂时禁用
-        // RitualDetector.checkAllRituals(player, data);
 
-        // ===== 第八环：背包工具/武器数量检测 =====
+        // 第八环：背包中工具/武器总数 ≥15 时自动完成行为
         if (!data.hasAnyRing() && !data.isBehaviorDone(8)) {
             int toolCount = 0;
             for (ItemStack stack : player.getInventory().main) {
@@ -92,13 +90,12 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
                     toolCount += stack.getCount();
                 }
             }
-            // 副手也检查一下
             ItemStack offhand = player.getOffHandStack();
             if (offhand.getItem() instanceof ToolItem || offhand.getItem() instanceof SwordItem) {
                 toolCount += offhand.getCount();
             }
             if (toolCount >= 15) {
-                data.setBehaviorDone(8);   // 标记行为完成
+                data.setBehaviorDone(8);
                 data.save(player);
                 syncToClient(player, data);
             }
