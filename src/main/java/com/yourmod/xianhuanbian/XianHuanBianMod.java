@@ -43,39 +43,65 @@ public class XianHuanBianMod implements ModInitializer {
         Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE, Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE,
         Blocks.NETHER_QUARTZ_ORE, Blocks.NETHER_GOLD_ORE, Blocks.ANCIENT_DEBRIS
     ));
-    @Override
+ @Override
 public void onInitialize() {
     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
         ToggleBuffCommand.register(dispatcher);
         BuffEventHandler.registerCommands(dispatcher);
     });
-
-    // 独立存档路径（最优先设置，防止后续误用默认路径）
-    ServerLifecycleEvents.SERVER_STARTING.register(server -> {
-        Path gameDir = FabricLoader.getInstance().getGameDir();
-        String worldName = server.getSaveProperties().getLevelName();
-        Path worldPath;
-        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
-            worldPath = gameDir.resolve("saves").resolve(worldName);
-        } else {
-            worldPath = gameDir.resolve(worldName);
-        }
-        PlayerDataStorage.setWorldPath(worldPath);
-    });
+    // 存档路径设置已移除，数据直接存储在玩家NBT中，天然隔离
     ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
     ServerPlayerEntity player = handler.player;
-    PlayerBuffData data = PlayerBuffData.getOrCreate(player);
+    PlayerBuffData data = PlayerBuffData.getOrCreate(player); // 自动从NBT加载
     syncToClient(player, data);
 });
 
+// 退出时无需额外保存，NBT已在save()中实时更新
 ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
     ServerPlayerEntity player = handler.player;
-    PlayerBuffData data = PlayerBuffData.SERVER_DATA.remove(player.getUuid());
-    if (data != null) {
-        PlayerDataStorage.savePlayerData(player.getUuid(), data);
-    }
+    PlayerBuffData.SERVER_DATA.remove(player.getUuid());
+    // 数据已随玩家NBT保存，无需额外操作
 });
 
+ServerTickEvents.END_SERVER_TICK.register(server -> {
+    for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+        PlayerBuffData data = PlayerBuffData.get(player);
+        BuffEventHandler.applyActiveBuffs(player, data);
+        BuffEventHandler.tickObserverMode(player, data);
+
+        // 第八环：背包中工具/武器总数 ≥15 时自动完成行为
+        if (!data.hasAnyRing() && !data.isBehaviorDone(8)) {
+            int toolCount = 0;
+            for (ItemStack stack : player.getInventory().main) {
+                if (stack.getItem() instanceof ToolItem || stack.getItem() instanceof SwordItem) {
+                    toolCount += stack.getCount();
+                }
+            }
+            ItemStack offhand = player.getOffHandStack();
+            if (offhand.getItem() instanceof ToolItem || offhand.getItem() instanceof SwordItem) {
+                toolCount += offhand.getCount();
+            }
+            if (toolCount >= 15) {
+                data.setBehaviorDone(8);
+                data.save(player);   // 立即写入NBT
+                syncToClient(player, data);
+            }
+        }
+
+        UUID id = player.getUuid();
+        Vec3d cur = player.getPos();
+        Vec3d last = lastPositions.get(id);
+        if (last != null) data.addWalkDist(cur.distanceTo(last));
+        lastPositions.put(id, cur);
+        data.checkExp(player.experienceLevel);
+
+        if (!data.hasAnyRing()) {
+            BuffEventHandler.tryUnlockFirstRing(player, data);
+        }
+        data.save(player);   // 每tick更新NBT，确保数据不丢失
+        if (player.age % 100 == 0) syncToClient(player, data);
+    }
+});
 ServerTickEvents.END_SERVER_TICK.register(server -> {
     for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
         PlayerBuffData data = PlayerBuffData.get(player);
