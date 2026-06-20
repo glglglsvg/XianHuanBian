@@ -1,13 +1,11 @@
 package com.yourmod.xianhuanbian;
 
-import net.fabricmc.api.EnvType;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.*;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.*;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.TypedActionResult;
@@ -41,20 +39,21 @@ public class XianHuanBianMod implements ModInitializer {
         Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE, Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE,
         Blocks.NETHER_QUARTZ_ORE, Blocks.NETHER_GOLD_ORE, Blocks.ANCIENT_DEBRIS
     ));
-@Override
+    @Override
 public void onInitialize() {
+    // 注册命令
     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
         ToggleBuffCommand.register(dispatcher);
         BuffEventHandler.registerCommands(dispatcher);
     });
-    // 不再需要设置独立路径，数据直接使用玩家 CustomData，天然隔离
+    // 不再需要路径设置，数据保存在世界 PersistentState 中
     ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
     ServerPlayerEntity player = handler.player;
-    PlayerBuffData data = PlayerBuffData.getOrCreate(player); // 自动从NBT加载
+    PlayerBuffData data = PlayerBuffData.getOrCreate(player); // 自动从世界 state 加载
     syncToClient(player, data);
 });
 
-// 退出时仅移除缓存，数据已实时保存在NBT中
+// 退出时仅移除缓存，数据已实时存入 PersistentState
 ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
     ServerPlayerEntity player = handler.player;
     PlayerBuffData.SERVER_DATA.remove(player.getUuid());
@@ -80,7 +79,7 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
             }
             if (toolCount >= 15) {
                 data.setBehaviorDone(8);
-                data.save(player);   // 立即写入NBT
+                data.save(player);   // 立即写入世界 state
                 syncToClient(player, data);
             }
         }
@@ -95,7 +94,7 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
         if (!data.hasAnyRing()) {
             BuffEventHandler.tryUnlockFirstRing(player, data);
         }
-        data.save(player);   // 每tick更新NBT，确保数据不丢失
+        data.save(player);   // 每 tick 写入，保证数据不丢
         if (player.age % 100 == 0) syncToClient(player, data);
     }
 });
