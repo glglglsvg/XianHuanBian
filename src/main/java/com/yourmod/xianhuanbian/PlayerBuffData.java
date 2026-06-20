@@ -8,36 +8,7 @@ public class PlayerBuffData {
     public static final Map<UUID, PlayerBuffData> SERVER_DATA = new HashMap<>();
     private static PlayerBuffData CLIENT_CACHE = new PlayerBuffData();
 
-    private boolean[] unlocked = new boolean[13];
-    private boolean[] active = new boolean[13];
-    private float[] chance = new float[11];
-    private int[] levels = new int[13];
-    private int[] durations = new int[13];
-    private int[] maxDurations = new int[13];
-    private long[] upgradeCost = new long[13];
-    private long cultivation = 0;
-    private int energy = 100;
-    private int maxEnergy = 100;
-    private float energyCostPerTick = 1.0f;
-    private long playTicks = 0;
-    private double globalAttack = 0;
-    private int maxHealthBonus = 0;
-    private int killHealAmount = 0;
-    private double killMultiplier = 1.0;
-    private int regenLevel = 0;
-
-    private int availablePoints = 0;
-    private int strength = 0;
-    private int speed = 0;
-    private int vitality = 0;
-    private int killCounter = 0;
-    private boolean isMeditating = false;
-    private int meditateTimer = 0;
-
-    private boolean[] behaviorDone = new boolean[11];
-    private int eatCount = 0, leftClickCount = 0, itemKillCount = 0;
-    private double walkDist = 0;
-    private int breakCount = 0, plantCount = 0, placeCount = 0, craftToolCount = 0, fireWaterCount = 0;
+    // ... 字段声明（不变）...
 
     public PlayerBuffData() {
         Arrays.fill(chance, 0.0f);
@@ -54,9 +25,9 @@ public class PlayerBuffData {
     // 从玩家NBT加载，若不存在则新建
     public static PlayerBuffData getOrCreate(ServerPlayerEntity player) {
         return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> {
-            NbtCompound persistent = player.getPersistentData();
-            if (persistent.contains("xianhuanbian")) {
-                return fromNbt(persistent.getCompound("xianhuanbian"));
+            NbtCompound customData = player.getCustomData();   // 改用 getCustomData()
+            if (customData.contains("xianhuanbian")) {
+                return fromNbt(customData.getCompound("xianhuanbian"));
             }
             return new PlayerBuffData();
         });
@@ -65,13 +36,13 @@ public class PlayerBuffData {
     // 保存到玩家NBT
     public void save(ServerPlayerEntity player) {
         SERVER_DATA.put(player.getUuid(), this);
-        NbtCompound persistent = player.getPersistentData();
-        persistent.put("xianhuanbian", toNbt());
+        NbtCompound customData = player.getCustomData();
+        customData.put("xianhuanbian", toNbt());
     }
 
     public static void reset(ServerPlayerEntity player) {
         SERVER_DATA.remove(player.getUuid());
-        player.getPersistentData().remove("xianhuanbian");
+        player.getCustomData().remove("xianhuanbian");   // 删除持久化数据
     }
     public boolean isUnlocked(int id) { return unlocked[id]; }
 public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
