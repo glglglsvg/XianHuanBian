@@ -2,6 +2,7 @@ package com.yourmod.xianhuanbian;
 
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import java.util.*;
 
 public class PlayerBuffData {
@@ -51,27 +52,31 @@ public class PlayerBuffData {
         return getOrCreate(player);
     }
 
-    // 从玩家 CustomData 加载，天然隔离
+    // 从世界 PersistentState 加载，若无则新建
     public static PlayerBuffData getOrCreate(ServerPlayerEntity player) {
         return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> {
-            NbtCompound customData = player.getCustomData();
-            if (customData.contains("xianhuanbian")) {
-                return fromNbt(customData.getCompound("xianhuanbian"));
+            ServerWorld world = player.getServerWorld();
+            XianHuanState state = XianHuanState.get(world);
+            NbtCompound tag = state.getPlayerData(uuid);
+            if (tag.isEmpty()) {
+                return new PlayerBuffData();
             }
-            return new PlayerBuffData();
+            return fromNbt(tag);
         });
     }
 
-    // 保存到玩家 CustomData
+    // 保存到世界 PersistentState
     public void save(ServerPlayerEntity player) {
         SERVER_DATA.put(player.getUuid(), this);
-        NbtCompound customData = player.getCustomData();
-        customData.put("xianhuanbian", toNbt());
+        ServerWorld world = player.getServerWorld();
+        XianHuanState state = XianHuanState.get(world);
+        state.setPlayerData(player.getUuid(), toNbt());
     }
 
     public static void reset(ServerPlayerEntity player) {
         SERVER_DATA.remove(player.getUuid());
-        player.getCustomData().remove("xianhuanbian");
+        ServerWorld world = player.getServerWorld();
+        XianHuanState.get(world).removePlayer(player.getUuid());
     }
     public boolean isUnlocked(int id) { return unlocked[id]; }
 public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
