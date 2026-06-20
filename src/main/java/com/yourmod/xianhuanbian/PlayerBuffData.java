@@ -133,7 +133,7 @@ public int getMeditateTimer() { return meditateTimer; }
 public void setMeditateTimer(int v) { meditateTimer = v; }
 public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
 public void setBehaviorDone(int id) { behaviorDone[id] = true; }
-    public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
+public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
 public void addLeftClick() { if (!hasAnyRing() && !behaviorDone[2]) { leftClickCount++; if (leftClickCount >= 300) setBehaviorDone(2); } }
 public void addItemKill() { if (!hasAnyRing() && !behaviorDone[3]) { itemKillCount++; if (itemKillCount >= 15) setBehaviorDone(3); } }
 public void addWalkDist(double d) { if (!hasAnyRing() && !behaviorDone[4]) { walkDist += d; if (walkDist >= 150) setBehaviorDone(4); } }
@@ -148,10 +148,9 @@ public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) ret
 public void applyBehaviorChances() {
     for (int i = 1; i <= 10; i++) {
         if (behaviorDone[i]) {
-            if (i == 8) chance[i] = 0.5f;   // 第八环 50%
-            else chance[i] = 0.2f;
+            chance[i] = 0.2f;   // 完成行为后概率 20%
         } else {
-            chance[i] = 0.000001f;
+            chance[i] = 0.0f;   // 未完成行为概率为 0，开局绝不可能获得气环
         }
     }
 }
