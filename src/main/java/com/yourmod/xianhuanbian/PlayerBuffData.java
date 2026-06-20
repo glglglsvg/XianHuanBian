@@ -51,17 +51,27 @@ public class PlayerBuffData {
         return getOrCreate(player);
     }
 
+    // 从玩家NBT加载，若不存在则新建
     public static PlayerBuffData getOrCreate(ServerPlayerEntity player) {
-        return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> PlayerDataStorage.loadPlayerData(uuid));
+        return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> {
+            NbtCompound persistent = player.getPersistentData();
+            if (persistent.contains("xianhuanbian")) {
+                return fromNbt(persistent.getCompound("xianhuanbian"));
+            }
+            return new PlayerBuffData();
+        });
     }
 
+    // 保存到玩家NBT
     public void save(ServerPlayerEntity player) {
         SERVER_DATA.put(player.getUuid(), this);
+        NbtCompound persistent = player.getPersistentData();
+        persistent.put("xianhuanbian", toNbt());
     }
 
     public static void reset(ServerPlayerEntity player) {
         SERVER_DATA.remove(player.getUuid());
-        PlayerDataStorage.remove(player.getUuid());
+        player.getPersistentData().remove("xianhuanbian");
     }
     public boolean isUnlocked(int id) { return unlocked[id]; }
 public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
@@ -129,39 +139,43 @@ public void addCraftTool() { if (!hasAnyRing() && !behaviorDone[8]) { craftToolC
 public void addFireWater() { if (!hasAnyRing() && !behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= 28) setBehaviorDone(9); } }
 public void checkExp(float level) { if (!hasAnyRing() && !behaviorDone[10] && level >= 2.0f) setBehaviorDone(10); }
 public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
-        public void applyBehaviorChances() {
-        for (int i = 1; i <= 10; i++) {
-            if (behaviorDone[i]) chance[i] = 0.2f;
-            else chance[i] = 0.000001f;
+
+public void applyBehaviorChances() {
+    for (int i = 1; i <= 10; i++) {
+        if (behaviorDone[i]) {
+            if (i == 8) chance[i] = 0.5f;   // 第八环 50%
+            else chance[i] = 0.2f;
+        } else {
+            chance[i] = 0.000001f;
         }
     }
+}
 
-    public void resetChancesForHardMode() { Arrays.fill(chance, 0.0f); adjustChances(); }
-    public float getEffectiveChance(int id, boolean isMeditating) {
-        float base = chance[id];
-        if (isMeditating) base *= 3.0f;
-        int unlockedCount = 0;
-        for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
-        if (unlockedCount >= 2) base *= 0.1f;
-        return Math.min(base, 1.0f);
-    }
-    public void adjustChances() {
-        int unlockedCount = 0;
-        for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
-        if (unlockedCount >= 2) for (int i = 1; i <= 10; i++) if (!unlocked[i]) chance[i] = 0.000001f / unlockedCount;
-    }
-    public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f); energy = Math.min(energy, maxEnergy); }
-    private int calcDuration(int level, int baseMin) { if (level >= 10) return 0; return baseMin * 20 + (level - 1) * (baseMin / 9) * 20; }
-    public void activate(int id, int baseMin) { setActive(id, true); if (baseMin == 0) setDuration(id, 0); else setDuration(id, calcDuration(getLevel(id), baseMin)); }
-    public void onLevelUp(int id) { upgradeEnergy(); if (maxDurations[id] != 0) { int lv = getLevel(id); if (lv >= 10) setDuration(id, 0); else setDuration(id, calcDuration(lv, 60)); } }
+public void resetChancesForHardMode() { Arrays.fill(chance, 0.0f); adjustChances(); }
+public float getEffectiveChance(int id, boolean isMeditating) {
+    float base = chance[id];
+    if (isMeditating) base *= 3.0f;
+    int unlockedCount = 0;
+    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+    if (unlockedCount >= 2) base *= 0.1f;
+    return Math.min(base, 1.0f);
+}
+public void adjustChances() {
+    int unlockedCount = 0;
+    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+    if (unlockedCount >= 2) for (int i = 1; i <= 10; i++) if (!unlocked[i]) chance[i] = 0.000001f / unlockedCount;
+}
+public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f); energy = Math.min(energy, maxEnergy); }
+private int calcDuration(int level, int baseMin) { if (level >= 10) return 0; return baseMin * 20 + (level - 1) * (baseMin / 9) * 20; }
+public void activate(int id, int baseMin) { setActive(id, true); if (baseMin == 0) setDuration(id, 0); else setDuration(id, calcDuration(getLevel(id), baseMin)); }
+public void onLevelUp(int id) { upgradeEnergy(); if (maxDurations[id] != 0) { int lv = getLevel(id); if (lv >= 10) setDuration(id, 0); else setDuration(id, calcDuration(lv, 60)); } }
 
-    public float getCurrentChance(int id) {
-        float base = 0.00001f;
-        if (behaviorDone[id]) base += 0.1f;
-        return base;
-    }
-
-    public static PlayerBuffData getClient() { return CLIENT_CACHE; }
+public float getCurrentChance(int id) {
+    float base = 0.00001f;
+    if (behaviorDone[id]) base += 0.1f;
+    return base;
+}
+        public static PlayerBuffData getClient() { return CLIENT_CACHE; }
     public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
 
     public static PlayerBuffData fromNbt(NbtCompound tag) {
@@ -211,4 +225,4 @@ public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) ret
         tag.putInt("medTimer", meditateTimer);
         return tag;
     }
-}                                                                                                 
+}
