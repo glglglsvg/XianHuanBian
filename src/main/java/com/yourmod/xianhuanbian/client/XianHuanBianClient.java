@@ -114,9 +114,9 @@ public void onInitializeClient() {
     }
     for (int i = 1; i <= 12; i++) if (d.isActive(i)) spawnPlayerRing(client, client.player, i, COLORS[i]);
 
-    // 左键计数（空挥和命中均有效）
-    if (client.options.attackKey.wasPressed()) {
-        ClientPlayNetworking.send(XianHuanBianMod.LEFT_CLICK_COUNT, PacketByteBufs.empty());
+    // 第二环行为：蹲下或跳跃
+    if (client.options.sneakKey.wasPressed() || client.options.jumpKey.wasPressed()) {
+        ClientPlayNetworking.send(XianHuanBianMod.SNEAK_JUMP_COUNT, PacketByteBufs.empty());
     }
                 StringBuilder hud = new StringBuilder();
         if (localRefilling) {
@@ -141,60 +141,56 @@ public void onInitializeClient() {
         client.player.sendMessage(Text.literal(hud.toString()), true);
     });
 }
-    private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
-    double y = pl.getY() + 1.0, rad = 0.5 + (id - 1) * 0.08;
-    var effect = new DustParticleEffect(col, 0.2f);
-    for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); cl.world.addParticle(effect, pl.getX() + rad * Math.cos(a), y, pl.getZ() + rad * Math.sin(a), 0, 0, 0); }
-    var white = new DustParticleEffect(new Vector3f(1, 1, 1), 0.1f);
-    for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); double x = pl.getX() + rad * Math.cos(a), z = pl.getZ() + rad * Math.sin(a); cl.world.addParticle(white, x, y, z, 0, 0, 0); }
-}
+        private void spawnPlayerRing(MinecraftClient cl, net.minecraft.entity.player.PlayerEntity pl, int id, Vector3f col) {
+        double y = pl.getY() + 1.0, rad = 0.5 + (id - 1) * 0.08;
+        var effect = new DustParticleEffect(col, 0.2f);
+        for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); cl.world.addParticle(effect, pl.getX() + rad * Math.cos(a), y, pl.getZ() + rad * Math.sin(a), 0, 0, 0); }
+        var white = new DustParticleEffect(new Vector3f(1, 1, 1), 0.1f);
+        for (int j = 0; j < 6; j++) { double a = (2 * Math.PI / 6) * j + (pl.age * 0.1); double x = pl.getX() + rad * Math.cos(a), z = pl.getZ() + rad * Math.sin(a); cl.world.addParticle(white, x, y, z, 0, 0, 0); }
+    }
 
-private void spawnAttackRing(MinecraftClient cl, LivingEntity target) {
-    PlayerBuffData d = PlayerBuffData.getClient();
-    double baseY = target.getY() + target.getHeight() / 2.0;
-    // 遍历所有激活的环，生成对应颜色的爆炸粒子
-    for (int id = 1; id <= 12; id++) {
-        if (d.isActive(id) && COLORS[id] != null) {
-            Vector3f color = COLORS[id];
-            // 随机粒子数量 8~16
-            int count = 8 + RAND.nextInt(9);
-            for (int j = 0; j < count; j++) {
-                // 随机方向与距离（模拟爆炸扩散）
-                double angle = RAND.nextDouble() * Math.PI * 2;
-                double pitch = (RAND.nextDouble() - 0.5) * Math.PI; // 垂直角度
-                double speed = 0.15 + RAND.nextDouble() * 0.25;
-                double dx = Math.cos(angle) * Math.cos(pitch) * speed;
-                double dy = Math.sin(pitch) * speed;
-                double dz = Math.sin(angle) * Math.cos(pitch) * speed;
-                cl.world.addParticle(new DustParticleEffect(color, 0.5f + RAND.nextFloat() * 0.5f),
-                    target.getX(), baseY, target.getZ(), dx, dy, dz);
+    private void spawnAttackRing(MinecraftClient cl, LivingEntity target) {
+        PlayerBuffData d = PlayerBuffData.getClient();
+        double baseY = target.getY() + target.getHeight() / 2.0;
+        for (int id = 1; id <= 12; id++) {
+            if (d.isActive(id) && COLORS[id] != null) {
+                Vector3f color = COLORS[id];
+                int count = 8 + RAND.nextInt(9);
+                for (int j = 0; j < count; j++) {
+                    double angle = RAND.nextDouble() * Math.PI * 2;
+                    double pitch = (RAND.nextDouble() - 0.5) * Math.PI;
+                    double speed = 0.15 + RAND.nextDouble() * 0.25;
+                    double dx = Math.cos(angle) * Math.cos(pitch) * speed;
+                    double dy = Math.sin(pitch) * speed;
+                    double dz = Math.sin(angle) * Math.cos(pitch) * speed;
+                    cl.world.addParticle(new DustParticleEffect(color, 0.5f + RAND.nextFloat() * 0.5f),
+                        target.getX(), baseY, target.getZ(), dx, dy, dz);
+                }
             }
         }
     }
-}
 
-private void spawnHorizontalRing(MinecraftClient cl, LivingEntity target) {
-    PlayerBuffData d = PlayerBuffData.getClient();
-    double baseY = target.getY() + target.getHeight() / 2.0;
-    // 遍历激活环，生成水平环状粒子（随机半径）
-    for (int id = 1; id <= 12; id++) {
-        if (d.isActive(id) && COLORS[id] != null) {
-            Vector3f color = COLORS[id];
-            double rad = 0.5 + RAND.nextDouble() * 0.5;
-            int count = 12 + RAND.nextInt(8);
-            for (int j = 0; j < count; j++) {
-                double angle = (2 * Math.PI / count) * j + RAND.nextDouble() * 0.5;
-                double x = target.getX() + rad * Math.cos(angle);
-                double z = target.getZ() + rad * Math.sin(angle);
-                // 随机微小的垂直扩散
-                double dy = (RAND.nextDouble() - 0.5) * 0.2;
-                cl.world.addParticle(new DustParticleEffect(color, 0.4f),
-                    x, baseY + dy, z, 0, 0, 0);
+    private void spawnHorizontalRing(MinecraftClient cl, LivingEntity target) {
+        PlayerBuffData d = PlayerBuffData.getClient();
+        double baseY = target.getY() + target.getHeight() / 2.0;
+        for (int id = 1; id <= 12; id++) {
+            if (d.isActive(id) && COLORS[id] != null) {
+                Vector3f color = COLORS[id];
+                double rad = 0.5 + RAND.nextDouble() * 0.5;
+                int count = 12 + RAND.nextInt(8);
+                for (int j = 0; j < count; j++) {
+                    double angle = (2 * Math.PI / count) * j + RAND.nextDouble() * 0.5;
+                    double x = target.getX() + rad * Math.cos(angle);
+                    double z = target.getZ() + rad * Math.sin(angle);
+                    double dy = (RAND.nextDouble() - 0.5) * 0.2;
+                    cl.world.addParticle(new DustParticleEffect(color, 0.4f),
+                        x, baseY + dy, z, 0, 0, 0);
+                }
             }
         }
     }
-}
-        private static class AttributeScreen extends Screen {
+
+    private static class AttributeScreen extends Screen {
         private final PlayerBuffData data;
         private ButtonWidget strButton, spdButton, vitButton;
 
