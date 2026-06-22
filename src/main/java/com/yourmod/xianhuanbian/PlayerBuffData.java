@@ -36,7 +36,7 @@ public class PlayerBuffData {
     private int meditateTimer = 0;
 
     private boolean[] behaviorDone = new boolean[11];
-    private int eatCount = 0, leftClickCount = 0, itemKillCount = 0;
+    private int eatCount = 0, sneakJumpCount = 0, itemKillCount = 0;
     private double walkDist = 0;
     private int breakCount = 0, plantCount = 0, placeCount = 0, craftToolCount = 0, fireWaterCount = 0;
 
@@ -52,7 +52,6 @@ public class PlayerBuffData {
         return getOrCreate(player);
     }
 
-    // 从世界 PersistentState 加载，若无则新建
     public static PlayerBuffData getOrCreate(ServerPlayerEntity player) {
         return SERVER_DATA.computeIfAbsent(player.getUuid(), uuid -> {
             ServerWorld world = player.getServerWorld();
@@ -65,7 +64,6 @@ public class PlayerBuffData {
         });
     }
 
-    // 保存到世界 PersistentState
     public void save(ServerPlayerEntity player) {
         SERVER_DATA.put(player.getUuid(), this);
         ServerWorld world = player.getServerWorld();
@@ -133,11 +131,11 @@ public int getMeditateTimer() { return meditateTimer; }
 public void setMeditateTimer(int v) { meditateTimer = v; }
 public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
 public void setBehaviorDone(int id) { behaviorDone[id] = true; }
-public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
-public void addLeftClick() { if (!hasAnyRing() && !behaviorDone[2]) { leftClickCount++; if (leftClickCount >= 300) setBehaviorDone(2); } }
+    public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
+public void addSneakJump() { if (!hasAnyRing() && !behaviorDone[2]) { sneakJumpCount++; if (sneakJumpCount >= 500) setBehaviorDone(2); } }
 public void addItemKill() { if (!hasAnyRing() && !behaviorDone[3]) { itemKillCount++; if (itemKillCount >= 15) setBehaviorDone(3); } }
-public void addWalkDist(double d) { if (!hasAnyRing() && !behaviorDone[4]) { walkDist += d; if (walkDist >= 150) setBehaviorDone(4); } }
-public void addBreak() { if (!hasAnyRing() && !behaviorDone[5]) { breakCount++; if (breakCount >= 49) setBehaviorDone(5); } }
+public void addWalkDist(double d) { if (!hasAnyRing() && !behaviorDone[4]) { walkDist += d; if (walkDist >= 500) setBehaviorDone(4); } }
+public void addBreak() { if (!hasAnyRing() && !behaviorDone[5]) { breakCount++; if (breakCount >= 100) setBehaviorDone(5); } }
 public void addPlant() { if (!hasAnyRing() && !behaviorDone[6]) { plantCount++; if (plantCount >= 15) setBehaviorDone(6); } }
 public void addPlace() { if (!hasAnyRing() && !behaviorDone[7]) { placeCount++; if (placeCount >= 72) setBehaviorDone(7); } }
 public void addCraftTool() { if (!hasAnyRing() && !behaviorDone[8]) { craftToolCount++; if (craftToolCount >= 15) setBehaviorDone(8); } }
@@ -148,9 +146,9 @@ public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) ret
 public void applyBehaviorChances() {
     for (int i = 1; i <= 10; i++) {
         if (behaviorDone[i]) {
-            chance[i] = 0.2f;   // 完成行为后概率 20%
+            chance[i] = 0.2f;
         } else {
-            chance[i] = 0.0f;   // 未完成行为概率为 0，开局绝不可能获得气环
+            chance[i] = 0.0f;
         }
     }
 }
@@ -196,7 +194,9 @@ public float getCurrentChance(int id) {
             data.chance[i] = tag.getFloat("chance" + i);
             data.behaviorDone[i] = tag.getBoolean("bdone" + i);
         }
-        data.eatCount = tag.getInt("eat"); data.leftClickCount = tag.getInt("lclick"); data.itemKillCount = tag.getInt("ikill");
+        data.eatCount = tag.getInt("eat");
+        data.sneakJumpCount = tag.getInt("sneakjump");
+        data.itemKillCount = tag.getInt("ikill");
         data.walkDist = tag.getDouble("walk"); data.breakCount = tag.getInt("break"); data.plantCount = tag.getInt("plant");
         data.placeCount = tag.getInt("place"); data.craftToolCount = tag.getInt("craft"); data.fireWaterCount = tag.getInt("fire");
         data.cultivation = tag.getLong("cultivation"); data.energy = tag.getInt("energy"); data.maxEnergy = tag.getInt("maxEnergy");
@@ -217,7 +217,9 @@ public float getCurrentChance(int id) {
             tag.putInt("maxDur" + i, maxDurations[i]); tag.putLong("cost" + i, upgradeCost[i]);
         }
         for (int i = 1; i <= 10; i++) { tag.putFloat("chance" + i, chance[i]); tag.putBoolean("bdone" + i, behaviorDone[i]); }
-        tag.putInt("eat", eatCount); tag.putInt("lclick", leftClickCount); tag.putInt("ikill", itemKillCount);
+        tag.putInt("eat", eatCount);
+        tag.putInt("sneakjump", sneakJumpCount);
+        tag.putInt("ikill", itemKillCount);
         tag.putDouble("walk", walkDist); tag.putInt("break", breakCount); tag.putInt("plant", plantCount);
         tag.putInt("place", placeCount); tag.putInt("craft", craftToolCount); tag.putInt("fire", fireWaterCount);
         tag.putLong("cultivation", cultivation); tag.putInt("energy", energy); tag.putInt("maxEnergy", maxEnergy);
