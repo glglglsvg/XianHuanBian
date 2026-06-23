@@ -228,6 +228,22 @@ public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEn
     }
     d.addKill();
 }
+public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float probInc, long cultivationInc, boolean isMeditating) {
+    d.addCultivation(cultivationInc);
+    boolean all10 = true;
+    for (int i = 0; i < 10; i++) {
+        if (!d.isUnlocked(i + 1)) { all10 = false; }
+    }
+    for (int i = 1; i <= 10; i++) {
+        if (d.isUnlocked(i) && d.getLevel(i) < 99 && d.getCultivation() >= d.getUpgradeCost(i))
+            upgradeBuff(p, d, i);
+    }
+    if (all10 && d.isUnlocked(11) && !d.isUnlocked(12)) {
+        boolean allActive = true;
+        for (int i = 1; i <= 11; i++) if (!d.isActive(i)) allActive = false;
+        if (allActive) { d.setUnlocked(12, true); p.sendMessage(Text.literal("修行圆满"), false); }
+    }
+}
 public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d) {
     // 行为不再自动解锁，此方法仅保留兼容性，不做任何操作
     return false;
