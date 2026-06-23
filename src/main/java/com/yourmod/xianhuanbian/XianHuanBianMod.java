@@ -88,6 +88,10 @@ public void onInitialize() {
             if (last != null) data.addWalkDist(cur.distanceTo(last));
             lastPositions.put(id, cur);
             data.checkExp(player.experienceLevel)
+                if (!data.hasAnyRing()) {
+    BuffEventHandler.tryUnlockFirstRing(player, data);
+            }
+            // 行为只提升概率，不再自动解锁气环
             data.save(player);
             if (player.age % 100 == 0) syncToClient(player, data);
         }
