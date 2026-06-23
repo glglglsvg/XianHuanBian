@@ -159,7 +159,7 @@ public void addItemKill() {
     if (!behaviorDone[3]) { itemKillCount++; if (itemKillCount >= needed) { setBehaviorDone(3); chance[3] = 0.2f; } }
 }
 public void addWalkDist(double d) {
-    int needed = hasAnyRing() ? 5000 : 500;
+    int needed = hasAnyRing() ? 10000 : 1000;
     if (!behaviorDone[4]) { walkDist += d; if (walkDist >= needed) { setBehaviorDone(4); chance[4] = 0.2f; } }
 }
 public void addBreak() {
