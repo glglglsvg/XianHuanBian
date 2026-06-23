@@ -45,57 +45,57 @@ public void onInitialize() {
         ToggleBuffCommand.register(dispatcher);
         BuffEventHandler.registerCommands(dispatcher);
     });
+// 玩家加入时从世界 PersistentState 加载数据
+ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+    ServerPlayerEntity player = handler.player;
+    PlayerBuffData data = PlayerBuffData.getOrCreate(player);
+    syncToClient(player, data);
+});
 
-    ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-        ServerPlayerEntity player = handler.player;
-        PlayerBuffData data = PlayerBuffData.getOrCreate(player);
-        syncToClient(player, data);
-    });
+// 退出时仅移除缓存，数据已实时保存在世界 state 中
+ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+    ServerPlayerEntity player = handler.player;
+    PlayerBuffData.SERVER_DATA.remove(player.getUuid());
+});
 
-    ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-        ServerPlayerEntity player = handler.player;
-        PlayerBuffData.SERVER_DATA.remove(player.getUuid());
-    });
+// 每 tick 更新状态
+ServerTickEvents.END_SERVER_TICK.register(server -> {
+    for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+        PlayerBuffData data = PlayerBuffData.get(player);
+        BuffEventHandler.applyActiveBuffs(player, data);
+        BuffEventHandler.tickObserverMode(player, data);
 
-    ServerTickEvents.END_SERVER_TICK.register(server -> {
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            PlayerBuffData data = PlayerBuffData.get(player);
-            BuffEventHandler.applyActiveBuffs(player, data);
-            BuffEventHandler.tickObserverMode(player, data);
-
-            // 第八环：背包中工具/武器总数 ≥15 时自动完成行为
-            if (!data.hasAnyRing() && !data.isBehaviorDone(8)) {
-                int toolCount = 0;
-                for (ItemStack stack : player.getInventory().main) {
-                    if (stack.getItem() instanceof ToolItem || stack.getItem() instanceof SwordItem) {
-                        toolCount += stack.getCount();
-                    }
-                }
-                ItemStack offhand = player.getOffHandStack();
-                if (offhand.getItem() instanceof ToolItem || offhand.getItem() instanceof SwordItem) {
-                    toolCount += offhand.getCount();
-                }
-                if (toolCount >= 15) {
-                    data.setBehaviorDone(8);
-                    data.save(player);
-                    syncToClient(player, data);
+        // 第八环：背包中工具/武器总数 ≥15 时自动完成行为
+        if (!data.hasAnyRing() && !data.isBehaviorDone(8)) {
+            int toolCount = 0;
+            for (ItemStack stack : player.getInventory().main) {
+                if (stack.getItem() instanceof ToolItem || stack.getItem() instanceof SwordItem) {
+                    toolCount += stack.getCount();
                 }
             }
-
-            UUID id = player.getUuid();
-            Vec3d cur = player.getPos();
-            Vec3d last = lastPositions.get(id);
-            if (last != null) data.addWalkDist(cur.distanceTo(last));
-            lastPositions.put(id, cur);
-            data.checkExp(player.experienceLevel)
-                if (!data.hasAnyRing()) {
-    BuffEventHandler.tryUnlockFirstRing(player, data);
+            ItemStack offhand = player.getOffHandStack();
+            if (offhand.getItem() instanceof ToolItem || offhand.getItem() instanceof SwordItem) {
+                toolCount += offhand.getCount();
             }
-            // 行为只提升概率，不再自动解锁气环
-            data.save(player);
-            if (player.age % 100 == 0) syncToClient(player, data);
+            if (toolCount >= 15) {
+                data.setBehaviorDone(8);
+                data.save(player);
+                syncToClient(player, data);
+            }
         }
-    });
+
+        UUID id = player.getUuid();
+        Vec3d cur = player.getPos();
+        Vec3d last = lastPositions.get(id);
+        if (last != null) data.addWalkDist(cur.distanceTo(last));
+        lastPositions.put(id, cur);
+        data.checkExp(player.experienceLevel);
+
+        // 行为只提升概率，不再自动解锁气环
+        data.save(player);
+        if (player.age % 100 == 0) syncToClient(player, data);
+    }
+});});
     ServerPlayNetworking.registerGlobalReceiver(SNEAK_JUMP_COUNT, (server, player, handler, buf, responseSender) -> {
     server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addSneakJump(); });
 });
