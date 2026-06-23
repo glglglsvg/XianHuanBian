@@ -34,7 +34,7 @@ public class XianHuanBianClient implements ClientModInitializer {
     };
     private static final int PARTICLE_COUNT = 8;
     private static final float PARTICLE_SIZE = 0.15f;
-    private static KeyBinding refillKey, infoKey, meditateKey;
+    private static KeyBinding refillKey, infoKey, meditateKey, fateKey;
     private static final Map<Integer, KeyBinding> singleKeys = new HashMap<>();
     private static final int[] KEY_CODES = {
         GLFW.GLFW_KEY_U, GLFW.GLFW_KEY_I, GLFW.GLFW_KEY_O,
@@ -51,6 +51,7 @@ public void onInitializeClient() {
     refillKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("回气", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "仙环变"));
     infoKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("属性", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Y, "仙环变"));
     meditateKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("修炼", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, "仙环变"));
+    fateKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("缘分", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_K, "仙环变"));
     String[] names = {"壹","贰","叁","肆","伍","陆","柒","捌","玖","拾"};
     for (int i = 1; i <= 10; i++) {
         KeyBinding kb = KeyBindingHelper.registerKeyBinding(new KeyBinding("气环"+names[i-1], InputUtil.Type.KEYSYM, KEY_CODES[i-1], "仙环变"));
@@ -108,6 +109,10 @@ public void onInitializeClient() {
         client.setScreen(new AttributeScreen(d));
     }
 
+    if (fateKey.wasPressed()) {
+        client.setScreen(new FateScreen(d));
+    }
+
     for (int i = 1; i <= 10; i++) {
         KeyBinding kb = singleKeys.get(i);
         if (kb != null && kb.wasPressed()) ClientPlayNetworking.send(new Identifier("xianhuanbian", "toggle_" + i), PacketByteBufs.empty());
@@ -118,7 +123,7 @@ public void onInitializeClient() {
     if (client.options.sneakKey.wasPressed() || client.options.jumpKey.wasPressed()) {
         ClientPlayNetworking.send(XianHuanBianMod.SNEAK_JUMP_COUNT, PacketByteBufs.empty());
     }
-                StringBuilder hud = new StringBuilder();
+               StringBuilder hud = new StringBuilder();
         if (localRefilling) {
             hud.append("【回气中】 ");
         }
@@ -245,6 +250,46 @@ public void onInitializeClient() {
             this.renderBackground(context);
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("可用点数: " + data.getAvailablePoints()), this.width / 2, 20, 0xFFFFFF);
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("力量: " + data.getStrength() + "  速度: " + data.getSpeed() + "  抗性: " + data.getVitality()), this.width / 2, 40, 0xAAAAAA);
+            super.render(context, mouseX, mouseY, delta);
+        }
+
+        @Override
+        public boolean shouldPause() { return false; }
+    }
+
+    // ========== 缘分界面 ==========
+    private static class FateScreen extends Screen {
+        private final PlayerBuffData data;
+        protected FateScreen(PlayerBuffData data) {
+            super(Text.literal("缘分"));
+            this.data = data;
+        }
+
+        @Override
+        public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+            this.renderBackground(context);
+            int y = 20;
+            context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("======== 缘分 ========"), this.width / 2, y, 0xFFFFFF);
+            y += 20;
+            for (int i = 1; i <= 10; i++) {
+                String chanceText = data.isUnlocked(i)
+                    ? "已领悟"
+                    : String.format("%.1f%%", data.getChance(i) * 100);
+                context.drawTextWithShadow(this.textRenderer,
+                    Text.literal(BuffNames.NAME[i] + ": " + chanceText),
+                    20, y, data.isUnlocked(i) ? 0x00FF00 : 0xAAAAAA);
+                y += 12;
+            }
+            y += 10;
+            // 进度条
+            int barWidth = 200;
+            int barHeight = 12;
+            int filled = (int) ((float) data.getProgress() / data.getMaxProgress() * barWidth);
+            context.fill(20, y, 20 + barWidth, y + barHeight, 0xFF444444);
+            context.fill(20, y, 20 + filled, y + barHeight, 0xFF00FF00);
+            String progressText = data.getProgress() + "/" + data.getMaxProgress();
+            context.drawCenteredTextWithShadow(this.textRenderer, Text.literal(progressText), this.width / 2, y - 12, 0xFFFFFF);
+            context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("修炼进度（满值随机领悟）"), this.width / 2, y + barHeight + 4, 0xAAAAAA);
             super.render(context, mouseX, mouseY, delta);
         }
 
