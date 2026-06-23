@@ -87,11 +87,7 @@ public void onInitialize() {
             Vec3d last = lastPositions.get(id);
             if (last != null) data.addWalkDist(cur.distanceTo(last));
             lastPositions.put(id, cur);
-            data.checkExp(player.experienceLevel);
-
-            if (!data.hasAnyRing()) {
-                BuffEventHandler.tryUnlockFirstRing(player, data);
-            }
+            data.checkExp(player.experienceLevel)
             data.save(player);
             if (player.age % 100 == 0) syncToClient(player, data);
         }
