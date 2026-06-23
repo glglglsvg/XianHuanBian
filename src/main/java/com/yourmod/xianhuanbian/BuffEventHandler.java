@@ -52,9 +52,29 @@ public class BuffEventHandler {
 
         if (d.isMeditating()) {
             d.setMeditateTimer(d.getMeditateTimer() + 1);
+            // 每秒增加1点进度
+            if (p.age % 20 == 0) {
+                d.addProgress(1);
+            }
             if (d.getMeditateTimer() >= 6000) {
                 d.setMeditateTimer(0);
                 d.addAvailablePoints(1);
+            }
+            // 进度满后随机解锁气环
+            if (d.getProgress() >= d.getMaxProgress()) {
+                d.setProgress(0);
+                int unlockedCount = 0;
+                for (int i = 1; i <= 10; i++) if (d.isUnlocked(i)) unlockedCount++;
+                if (unlockedCount >= 10) {
+                    p.sendMessage(Text.literal("你已领悟所有气环，缘分圆满！"), false);
+                } else {
+                    List<Integer> candidates = new ArrayList<>();
+                    for (int i = 1; i <= 10; i++) if (!d.isUnlocked(i)) candidates.add(i);
+                    int chosen = candidates.get(RANDOM.nextInt(candidates.size()));
+                    unlockBuff(p, d, chosen);
+                    p.sendMessage(Text.literal("通过缘分领悟了" + BuffNames.NAME[chosen] + "！"), false);
+                }
+                d.updateMaxProgress();
             }
             p.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100, 0, false, false));
             p.setPose(net.minecraft.entity.EntityPose.SITTING);
@@ -146,7 +166,7 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
         case 12: p.getAbilities().invulnerable = true; p.sendAbilitiesUpdate(); break;
     }
 }
-    public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
+ public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
 
     if (d.isActive(5)) {
@@ -355,3 +375,4 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
         }
     }
 }
+                                                
