@@ -52,7 +52,6 @@ public class BuffEventHandler {
 
         if (d.isMeditating()) {
             d.setMeditateTimer(d.getMeditateTimer() + 1);
-            // 每秒增加1点进度
             if (p.age % 20 == 0) {
                 d.addProgress(1);
             }
@@ -60,19 +59,30 @@ public class BuffEventHandler {
                 d.setMeditateTimer(0);
                 d.addAvailablePoints(1);
             }
-            // 进度满后随机解锁气环
+            // 进度满后觉醒
             if (d.getProgress() >= d.getMaxProgress()) {
                 d.setProgress(0);
-                int unlockedCount = 0;
-                for (int i = 1; i <= 10; i++) if (d.isUnlocked(i)) unlockedCount++;
-                if (unlockedCount >= 10) {
-                    p.sendMessage(Text.literal("你已领悟所有气环，缘分圆满！"), false);
-                } else {
-                    List<Integer> candidates = new ArrayList<>();
-                    for (int i = 1; i <= 10; i++) if (!d.isUnlocked(i)) candidates.add(i);
-                    int chosen = candidates.get(RANDOM.nextInt(candidates.size()));
+                List<Integer> candidates = new ArrayList<>();
+                for (int i = 1; i <= 10; i++) {
+                    if (!d.isUnlocked(i) && d.getChance(i) > 0.0f) {
+                        candidates.add(i);
+                    }
+                }
+                if (!candidates.isEmpty()) {
+                    int chosen;
+                    if (!d.hasAnyRing()) {
+                        // 初次觉醒：选概率最高的
+                        candidates.sort((a, b) -> Float.compare(d.getChance(b), d.getChance(a)));
+                        chosen = candidates.get(0);
+                        p.sendMessage(Text.literal("初次觉悟！领悟了" + BuffNames.NAME[chosen] + "！"), false);
+                    } else {
+                        // 后续觉醒：随机选
+                        chosen = candidates.get(RANDOM.nextInt(candidates.size()));
+                        p.sendMessage(Text.literal("缘分所至，领悟了" + BuffNames.NAME[chosen] + "！"), false);
+                    }
                     unlockBuff(p, d, chosen);
-                    p.sendMessage(Text.literal("通过缘分领悟了" + BuffNames.NAME[chosen] + "！"), false);
+                } else {
+                    p.sendMessage(Text.literal("缘分已至，但你尚未通过行为提升任何气环的概率……"), false);
                 }
                 d.updateMaxProgress();
             }
@@ -100,7 +110,8 @@ public class BuffEventHandler {
             else d.setDuration(8, cd - 1);
         }
 
-        if (d.isActive(11)) {
+
+            if (d.isActive(11)) {
             d.setPlayTicks(d.getPlayTicks() + 1);
             if (d.getPlayTicks() % (20 * 60 * 5) == 0) {
                 for (int i = 1; i <= 10; i++) if (d.isActive(i) && d.getLevel(i) < 99) upgradeBuff(p, d, i);
@@ -166,7 +177,7 @@ private static void applySingleBuff(ServerPlayerEntity p, int id, PlayerBuffData
         case 12: p.getAbilities().invulnerable = true; p.sendAbilitiesUpdate(); break;
     }
 }
- public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
+    public static double attackEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEntity target) {
     double totalDamage = 0;
 
     if (d.isActive(5)) {
@@ -226,23 +237,7 @@ public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEn
 }
 
 public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d) {
-    if (d.hasAnyRing()) return false;
-    d.applyBehaviorChances();
-    for (int i = 1; i <= 10; i++) {
-        if (p.getRandom().nextFloat() < d.getChance(i)) {
-            d.setUnlocked(i, true); d.setActive(i, true); d.setLevel(i, 1);
-            if (i == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
-            if (i == 10) { d.setKillHealAmount(5); d.setKillMultiplier(0.5); }
-            if (i == 5) d.setDuration(i, 60 * 20);
-            if (i == 7) { d.setMaxDuration(7, 1); d.activate(7, 1); }
-            double newAttack = Math.pow(d.getGlobalAttack() + 2, 1.5);
-            d.setGlobalAttack(newAttack);
-            d.onLevelUp(i);
-            d.resetChancesForHardMode();
-            p.sendMessage(Text.literal("你顿悟了" + BuffNames.NAME[i] + "之力！"), false);
-            return true;
-        }
-    }
+    // 行为不再自动解锁，此方法仅保留兼容性，不做任何操作
     return false;
 }
 
@@ -375,4 +370,3 @@ public static void applyHealth(ServerPlayerEntity p, PlayerBuffData d) {
         }
     }
 }
-                                                
