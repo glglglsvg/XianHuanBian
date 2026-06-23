@@ -59,33 +59,34 @@ public class BuffEventHandler {
                 d.setMeditateTimer(0);
                 d.addAvailablePoints(1);
             }
-            // 进度满后觉醒
-            if (d.getProgress() >= d.getMaxProgress()) {
-                d.setProgress(0);
-                List<Integer> candidates = new ArrayList<>();
-                for (int i = 1; i <= 10; i++) {
-                    if (!d.isUnlocked(i) && d.getChance(i) > 0.0f) {
-                        candidates.add(i);
-                    }
-                }
-                if (!candidates.isEmpty()) {
-                    int chosen;
-                    if (!d.hasAnyRing()) {
-                        // 初次觉醒：选概率最高的
-                        candidates.sort((a, b) -> Float.compare(d.getChance(b), d.getChance(a)));
-                        chosen = candidates.get(0);
-                        p.sendMessage(Text.literal("初次觉悟！领悟了" + BuffNames.NAME[chosen] + "！"), false);
-                    } else {
-                        // 后续觉醒：随机选
-                        chosen = candidates.get(RANDOM.nextInt(candidates.size()));
-                        p.sendMessage(Text.literal("缘分所至，领悟了" + BuffNames.NAME[chosen] + "！"), false);
-                    }
-                    unlockBuff(p, d, chosen);
-                } else {
-                    p.sendMessage(Text.literal("缘分已至，但你尚未通过行为提升任何气环的概率……"), false);
-                }
-                d.updateMaxProgress();
-            }
+           if (d.getProgress() >= d.getMaxProgress()) {
+    // 收集未解锁且概率>0的环
+    List<Integer> candidates = new ArrayList<>();
+    for (int i = 1; i <= 10; i++) {
+        if (!d.isUnlocked(i) && d.getChance(i) > 0.0f) {
+            candidates.add(i);
+        }
+    }
+    if (candidates.isEmpty()) {
+        // 没有概率>0的环，进度保留不动，等待行为提升概率
+        p.sendMessage(Text.literal("缘分已至，但你尚未通过行为提升任何气环的概率……"), false);
+    } else {
+        d.setProgress(0); // 清空进度
+        int chosen;
+        if (!d.hasAnyRing()) {
+            // 初次觉醒：选概率最高的
+            candidates.sort((a, b) -> Float.compare(d.getChance(b), d.getChance(a)));
+            chosen = candidates.get(0);
+            p.sendMessage(Text.literal("初次觉悟！领悟了" + BuffNames.NAME[chosen] + "！"), false);
+        } else {
+            // 后续觉醒：随机选
+            chosen = candidates.get(RANDOM.nextInt(candidates.size()));
+            p.sendMessage(Text.literal("缘分所至，领悟了" + BuffNames.NAME[chosen] + "！"), false);
+        }
+        unlockBuff(p, d, chosen);
+        d.updateMaxProgress();
+    }
+}}
             p.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100, 0, false, false));
             p.setPose(net.minecraft.entity.EntityPose.SITTING);
         }
