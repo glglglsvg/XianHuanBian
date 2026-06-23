@@ -40,6 +40,10 @@ public class PlayerBuffData {
     private double walkDist = 0;
     private int breakCount = 0, plantCount = 0, placeCount = 0, craftToolCount = 0, fireWaterCount = 0;
 
+    // 缘分进度
+    private int progress = 0;
+    private int maxProgress = 100;
+
     public PlayerBuffData() {
         Arrays.fill(chance, 0.0f);
         for (int i = 1; i <= 12; i++) {
@@ -131,16 +135,56 @@ public int getMeditateTimer() { return meditateTimer; }
 public void setMeditateTimer(int v) { meditateTimer = v; }
 public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
 public void setBehaviorDone(int id) { behaviorDone[id] = true; }
-    public void addEat() { if (!hasAnyRing() && !behaviorDone[1]) { eatCount++; if (eatCount >= 28) setBehaviorDone(1); } }
-public void addSneakJump() { if (!hasAnyRing() && !behaviorDone[2]) { sneakJumpCount++; if (sneakJumpCount >= 500) setBehaviorDone(2); } }
-public void addItemKill() { if (!hasAnyRing() && !behaviorDone[3]) { itemKillCount++; if (itemKillCount >= 15) setBehaviorDone(3); } }
-public void addWalkDist(double d) { if (!hasAnyRing() && !behaviorDone[4]) { walkDist += d; if (walkDist >= 500) setBehaviorDone(4); } }
-public void addBreak() { if (!hasAnyRing() && !behaviorDone[5]) { breakCount++; if (breakCount >= 100) setBehaviorDone(5); } }
-public void addPlant() { if (!hasAnyRing() && !behaviorDone[6]) { plantCount++; if (plantCount >= 15) setBehaviorDone(6); } }
-public void addPlace() { if (!hasAnyRing() && !behaviorDone[7]) { placeCount++; if (placeCount >= 72) setBehaviorDone(7); } }
-public void addCraftTool() { if (!hasAnyRing() && !behaviorDone[8]) { craftToolCount++; if (craftToolCount >= 15) setBehaviorDone(8); } }
-public void addFireWater() { if (!hasAnyRing() && !behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= 28) setBehaviorDone(9); } }
-public void checkExp(float level) { if (!hasAnyRing() && !behaviorDone[10] && level >= 2.0f) setBehaviorDone(10); }
+
+// 缘分进度
+public int getProgress() { return progress; }
+public void setProgress(int v) { progress = Math.max(0, Math.min(v, maxProgress)); }
+public void addProgress(int v) { setProgress(progress + v); }
+public int getMaxProgress() { return maxProgress; }
+public void updateMaxProgress() {
+    int count = 0;
+    for (int i = 1; i <= 10; i++) if (unlocked[i]) count++;
+    maxProgress = 100 + (count - 1) * 50;
+}
+public void addEat() {
+    int needed = hasAnyRing() ? 280 : 28;
+    if (!behaviorDone[1]) { eatCount++; if (eatCount >= needed) setBehaviorDone(1); }
+}
+public void addSneakJump() {
+    int needed = hasAnyRing() ? 5000 : 500;
+    if (!behaviorDone[2]) { sneakJumpCount++; if (sneakJumpCount >= needed) setBehaviorDone(2); }
+}
+public void addItemKill() {
+    int needed = hasAnyRing() ? 150 : 15;
+    if (!behaviorDone[3]) { itemKillCount++; if (itemKillCount >= needed) setBehaviorDone(3); }
+}
+public void addWalkDist(double d) {
+    int needed = hasAnyRing() ? 5000 : 500;
+    if (!behaviorDone[4]) { walkDist += d; if (walkDist >= needed) setBehaviorDone(4); }
+}
+public void addBreak() {
+    int needed = hasAnyRing() ? 1000 : 100;
+    if (!behaviorDone[5]) { breakCount++; if (breakCount >= needed) setBehaviorDone(5); }
+}
+public void addPlant() {
+    int needed = hasAnyRing() ? 150 : 15;
+    if (!behaviorDone[6]) { plantCount++; if (plantCount >= needed) setBehaviorDone(6); }
+}
+public void addPlace() {
+    int needed = hasAnyRing() ? 720 : 72;
+    if (!behaviorDone[7]) { placeCount++; if (placeCount >= needed) setBehaviorDone(7); }
+}
+public void addCraftTool() {
+    int needed = hasAnyRing() ? 150 : 15;
+    if (!behaviorDone[8]) { craftToolCount++; if (craftToolCount >= needed) setBehaviorDone(8); }
+}
+public void addFireWater() {
+    int needed = hasAnyRing() ? 280 : 28;
+    if (!behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= needed) setBehaviorDone(9); }
+}
+public void checkExp(float level) {
+    if (!behaviorDone[10] && level >= 2.0f) setBehaviorDone(10);
+}
 public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
 
 public void applyBehaviorChances() {
@@ -206,6 +250,8 @@ public float getCurrentChance(int id) {
         data.availablePoints = tag.getInt("points"); data.strength = tag.getInt("str"); data.speed = tag.getInt("spd");
         data.vitality = tag.getInt("vit"); data.killCounter = tag.getInt("kills"); data.isMeditating = tag.getBoolean("med");
         data.meditateTimer = tag.getInt("medTimer");
+        data.progress = tag.getInt("progress");
+        data.maxProgress = tag.getInt("maxProgress");
         return data;
     }
 
@@ -217,9 +263,7 @@ public float getCurrentChance(int id) {
             tag.putInt("maxDur" + i, maxDurations[i]); tag.putLong("cost" + i, upgradeCost[i]);
         }
         for (int i = 1; i <= 10; i++) { tag.putFloat("chance" + i, chance[i]); tag.putBoolean("bdone" + i, behaviorDone[i]); }
-        tag.putInt("eat", eatCount);
-        tag.putInt("sneakjump", sneakJumpCount);
-        tag.putInt("ikill", itemKillCount);
+        tag.putInt("eat", eatCount); tag.putInt("sneakjump", sneakJumpCount); tag.putInt("ikill", itemKillCount);
         tag.putDouble("walk", walkDist); tag.putInt("break", breakCount); tag.putInt("plant", plantCount);
         tag.putInt("place", placeCount); tag.putInt("craft", craftToolCount); tag.putInt("fire", fireWaterCount);
         tag.putLong("cultivation", cultivation); tag.putInt("energy", energy); tag.putInt("maxEnergy", maxEnergy);
@@ -229,6 +273,8 @@ public float getCurrentChance(int id) {
         tag.putInt("points", availablePoints); tag.putInt("str", strength); tag.putInt("spd", speed);
         tag.putInt("vit", vitality); tag.putInt("kills", killCounter); tag.putBoolean("med", isMeditating);
         tag.putInt("medTimer", meditateTimer);
+        tag.putInt("progress", progress);
+        tag.putInt("maxProgress", maxProgress);
         return tag;
     }
 }
