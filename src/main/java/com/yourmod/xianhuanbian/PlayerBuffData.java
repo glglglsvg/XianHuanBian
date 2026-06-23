@@ -146,44 +146,44 @@ public void updateMaxProgress() {
     for (int i = 1; i <= 10; i++) if (unlocked[i]) count++;
     maxProgress = 100 + (count - 1) * 50;
 }
-public void addEat() {
+    public void addEat() {
     int needed = hasAnyRing() ? 280 : 28;
-    if (!behaviorDone[1]) { eatCount++; if (eatCount >= needed) setBehaviorDone(1); }
+    if (!behaviorDone[1]) { eatCount++; if (eatCount >= needed) { setBehaviorDone(1); chance[1] = 0.2f; } }
 }
 public void addSneakJump() {
     int needed = hasAnyRing() ? 5000 : 500;
-    if (!behaviorDone[2]) { sneakJumpCount++; if (sneakJumpCount >= needed) setBehaviorDone(2); }
+    if (!behaviorDone[2]) { sneakJumpCount++; if (sneakJumpCount >= needed) { setBehaviorDone(2); chance[2] = 0.2f; } }
 }
 public void addItemKill() {
     int needed = hasAnyRing() ? 150 : 15;
-    if (!behaviorDone[3]) { itemKillCount++; if (itemKillCount >= needed) setBehaviorDone(3); }
+    if (!behaviorDone[3]) { itemKillCount++; if (itemKillCount >= needed) { setBehaviorDone(3); chance[3] = 0.2f; } }
 }
 public void addWalkDist(double d) {
     int needed = hasAnyRing() ? 5000 : 500;
-    if (!behaviorDone[4]) { walkDist += d; if (walkDist >= needed) setBehaviorDone(4); }
+    if (!behaviorDone[4]) { walkDist += d; if (walkDist >= needed) { setBehaviorDone(4); chance[4] = 0.2f; } }
 }
 public void addBreak() {
     int needed = hasAnyRing() ? 1000 : 100;
-    if (!behaviorDone[5]) { breakCount++; if (breakCount >= needed) setBehaviorDone(5); }
+    if (!behaviorDone[5]) { breakCount++; if (breakCount >= needed) { setBehaviorDone(5); chance[5] = 0.2f; } }
 }
 public void addPlant() {
     int needed = hasAnyRing() ? 150 : 15;
-    if (!behaviorDone[6]) { plantCount++; if (plantCount >= needed) setBehaviorDone(6); }
+    if (!behaviorDone[6]) { plantCount++; if (plantCount >= needed) { setBehaviorDone(6); chance[6] = 0.2f; } }
 }
 public void addPlace() {
     int needed = hasAnyRing() ? 720 : 72;
-    if (!behaviorDone[7]) { placeCount++; if (placeCount >= needed) setBehaviorDone(7); }
+    if (!behaviorDone[7]) { placeCount++; if (placeCount >= needed) { setBehaviorDone(7); chance[7] = 0.2f; } }
 }
 public void addCraftTool() {
     int needed = hasAnyRing() ? 150 : 15;
-    if (!behaviorDone[8]) { craftToolCount++; if (craftToolCount >= needed) setBehaviorDone(8); }
+    if (!behaviorDone[8]) { craftToolCount++; if (craftToolCount >= needed) { setBehaviorDone(8); chance[8] = 0.2f; } }
 }
 public void addFireWater() {
     int needed = hasAnyRing() ? 280 : 28;
-    if (!behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= needed) setBehaviorDone(9); }
+    if (!behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= needed) { setBehaviorDone(9); chance[9] = 0.2f; } }
 }
 public void checkExp(float level) {
-    if (!behaviorDone[10] && level >= 2.0f) setBehaviorDone(10);
+    if (!behaviorDone[10] && level >= 2.0f) { setBehaviorDone(10); chance[10] = 0.2f; }
 }
 public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
 
