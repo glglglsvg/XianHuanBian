@@ -227,7 +227,6 @@ public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEn
         p.heal(d.getKillHealAmount());
     }
     d.addKill();
-}
 public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float probInc, long cultivationInc, boolean isMeditating) {
     d.addCultivation(cultivationInc);
     boolean all10 = true;
@@ -244,10 +243,12 @@ public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float
         if (allActive) { d.setUnlocked(12, true); p.sendMessage(Text.literal("修行圆满"), false); }
     }
 }
+
 public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d) {
     // 行为不再自动解锁，此方法仅保留兼容性，不做任何操作
     return false;
 }
+
 public static void unlockBuff(ServerPlayerEntity p, PlayerBuffData d, int id) {
     d.setUnlocked(id, true); d.setActive(id, true); d.setLevel(id, 1);
     if (id == 1) { d.setMaxHealthBonus(5); d.setRegenLevel(1); applyHealth(p, d); }
