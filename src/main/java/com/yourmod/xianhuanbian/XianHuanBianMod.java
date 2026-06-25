@@ -45,20 +45,17 @@ public void onInitialize() {
         ToggleBuffCommand.register(dispatcher);
         BuffEventHandler.registerCommands(dispatcher);
     });
-// 玩家加入时从世界 PersistentState 加载数据
-ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+    ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
     ServerPlayerEntity player = handler.player;
     PlayerBuffData data = PlayerBuffData.getOrCreate(player);
     syncToClient(player, data);
 });
 
-// 退出时仅移除缓存，数据已实时保存在世界 state 中
 ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
     ServerPlayerEntity player = handler.player;
     PlayerBuffData.SERVER_DATA.remove(player.getUuid());
 });
 
-// 每 tick 更新状态
 ServerTickEvents.END_SERVER_TICK.register(server -> {
     for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
         PlayerBuffData data = PlayerBuffData.get(player);
@@ -91,11 +88,11 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
         lastPositions.put(id, cur);
         data.checkExp(player.experienceLevel);
 
-        // 行为只提升概率，不再自动解锁气环
+        // 不再自动解锁，行为只提升概率
         data.save(player);
         if (player.age % 100 == 0) syncToClient(player, data);
     }
-});});
+});
     ServerPlayNetworking.registerGlobalReceiver(SNEAK_JUMP_COUNT, (server, player, handler, buf, responseSender) -> {
     server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addSneakJump(); });
 });
@@ -156,38 +153,39 @@ UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
     }
     return ActionResult.PASS;
 });
-ServerPlayNetworking.registerGlobalReceiver(MEDITATE_START, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.setMeditating(true); data.setMeditateTimer(0); player.sendMessage(Text.literal("开始修炼..."), true); });
-});
-ServerPlayNetworking.registerGlobalReceiver(MEDITATE_STOP, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.setMeditating(false); data.setMeditateTimer(0); player.setPose(net.minecraft.entity.EntityPose.STANDING); player.sendMessage(Text.literal("结束修炼"), true); });
-});
-ServerPlayNetworking.registerGlobalReceiver(REQUEST_INFO, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> {
-        PlayerBuffData data = PlayerBuffData.get(player);
-        StringBuilder sb = new StringBuilder("========== 仙环属性 ==========\n");
-        int count = 0; for (int i=1;i<=10;i++) if (data.isUnlocked(i)) count++;
-        sb.append("气环数量: ").append(count).append("/10\n");
-        for (int i=1;i<=10;i++) if (data.isUnlocked(i)) sb.append(BuffNames.NAME[i]).append(": Lv").append(data.getLevel(i)).append("\n");
-        sb.append("可用点数: ").append(data.getAvailablePoints()).append("\n");
-        sb.append("力量: ").append(data.getStrength()).append(" | 速度: ").append(data.getSpeed()).append(" | 抗性: ").append(data.getVitality()).append("\n");
-        sb.append("缘分:\n");
-        for (int i=1;i<=10;i++) if (!data.isUnlocked(i)) sb.append(BuffNames.NAME[i].charAt(0)).append(": ").append(String.format("%.4f%%", data.getChance(i)*100)).append("\n");
-        player.sendMessage(Text.literal(sb.toString()), false);
-    });
-});
-ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addEnergy(30); data.save(player); player.sendMessage(Text.literal("你凝神聚气，恢复了30点能量"), true); });
-});
-ServerPlayNetworking.registerGlobalReceiver(ADD_STR, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setStrength(data.getStrength() + 1); data.save(player); syncToClient(player, data); } });
-});
-ServerPlayNetworking.registerGlobalReceiver(ADD_SPD, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setSpeed(data.getSpeed() + 1); data.save(player); syncToClient(player, data); } });
-});
-ServerPlayNetworking.registerGlobalReceiver(ADD_VIT, (server, player, handler, buf, responseSender) -> {
-    server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setVitality(data.getVitality() + 1); data.save(player); syncToClient(player, data); } });
-});
+        ServerPlayNetworking.registerGlobalReceiver(MEDITATE_START, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.setMeditating(true); data.setMeditateTimer(0); player.sendMessage(Text.literal("开始修炼..."), true); });
+        });
+        ServerPlayNetworking.registerGlobalReceiver(MEDITATE_STOP, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.setMeditating(false); data.setMeditateTimer(0); player.setPose(net.minecraft.entity.EntityPose.STANDING); player.sendMessage(Text.literal("结束修炼"), true); });
+        });
+        ServerPlayNetworking.registerGlobalReceiver(REQUEST_INFO, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> {
+                PlayerBuffData data = PlayerBuffData.get(player);
+                StringBuilder sb = new StringBuilder("========== 仙环属性 ==========\n");
+                int count = 0; for (int i=1;i<=10;i++) if (data.isUnlocked(i)) count++;
+                sb.append("气环数量: ").append(count).append("/10\n");
+                for (int i=1;i<=10;i++) if (data.isUnlocked(i)) sb.append(BuffNames.NAME[i]).append(": Lv").append(data.getLevel(i)).append("\n");
+                sb.append("可用点数: ").append(data.getAvailablePoints()).append("\n");
+                sb.append("力量: ").append(data.getStrength()).append(" | 速度: ").append(data.getSpeed()).append(" | 抗性: ").append(data.getVitality()).append("\n");
+                sb.append("缘分:\n");
+                for (int i=1;i<=10;i++) if (!data.isUnlocked(i)) sb.append(BuffNames.NAME[i].charAt(0)).append(": ").append(String.format("%.4f%%", data.getChance(i)*100)).append("\n");
+                player.sendMessage(Text.literal(sb.toString()), false);
+            });
+        });
+        ServerPlayNetworking.registerGlobalReceiver(REFILL_ENERGY, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); data.addEnergy(30); data.save(player); player.sendMessage(Text.literal("你凝神聚气，恢复了30点能量"), true); });
+        });
+        ServerPlayNetworking.registerGlobalReceiver(ADD_STR, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setStrength(data.getStrength() + 1); data.save(player); syncToClient(player, data); } });
+        });
+        ServerPlayNetworking.registerGlobalReceiver(ADD_SPD, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setSpeed(data.getSpeed() + 1); data.save(player); syncToClient(player, data); } });
+        });
+        ServerPlayNetworking.registerGlobalReceiver(ADD_VIT, (server, player, handler, buf, responseSender) -> {
+            server.execute(() -> { PlayerBuffData data = PlayerBuffData.get(player); if (data.getAvailablePoints() > 0) { data.setAvailablePoints(data.getAvailablePoints() - 1); data.setVitality(data.getVitality() + 1); data.save(player); syncToClient(player, data); } });
+        });
+
         for (int i = 1; i <= 10; i++) {
             final int id = i;
             Identifier toggleId = new Identifier(MODID, "toggle_" + id);
