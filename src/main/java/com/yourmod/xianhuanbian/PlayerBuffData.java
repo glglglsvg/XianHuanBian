@@ -136,7 +136,6 @@ public void setMeditateTimer(int v) { meditateTimer = v; }
 public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
 public void setBehaviorDone(int id) { behaviorDone[id] = true; }
 
-// 缘分进度
 public int getProgress() { return progress; }
 public void setProgress(int v) { progress = Math.max(0, Math.min(v, maxProgress)); }
 public void addProgress(int v) { setProgress(progress + v); }
@@ -146,7 +145,7 @@ public void updateMaxProgress() {
     for (int i = 1; i <= 10; i++) if (unlocked[i]) count++;
     maxProgress = 100 + (count - 1) * 50;
 }
-    public void addEat() {
+   public void addEat() {
     int needed = hasAnyRing() ? 280 : 28;
     if (!behaviorDone[1]) { eatCount++; if (eatCount >= needed) { setBehaviorDone(1); chance[1] = 0.2f; } }
 }
@@ -189,11 +188,8 @@ public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) ret
 
 public void applyBehaviorChances() {
     for (int i = 1; i <= 10; i++) {
-        if (behaviorDone[i]) {
-            chance[i] = 0.2f;
-        } else {
-            chance[i] = 0.0f;
-        }
+        if (behaviorDone[i]) chance[i] = 0.2f;
+        else chance[i] = 0.0f;
     }
 }
 
@@ -221,7 +217,7 @@ public float getCurrentChance(int id) {
     if (behaviorDone[id]) base += 0.1f;
     return base;
 }
-        public static PlayerBuffData getClient() { return CLIENT_CACHE; }
+       public static PlayerBuffData getClient() { return CLIENT_CACHE; }
     public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
 
     public static PlayerBuffData fromNbt(NbtCompound tag) {
@@ -277,4 +273,4 @@ public float getCurrentChance(int id) {
         tag.putInt("maxProgress", maxProgress);
         return tag;
     }
-}
+} 
