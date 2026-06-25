@@ -59,34 +59,33 @@ public class BuffEventHandler {
                 d.setMeditateTimer(0);
                 d.addAvailablePoints(1);
             }
-           if (d.getProgress() >= d.getMaxProgress()) {
-    // 收集未解锁且概率>0的环
-    List<Integer> candidates = new ArrayList<>();
-    for (int i = 1; i <= 10; i++) {
-        if (!d.isUnlocked(i) && d.getChance(i) > 0.0f) {
-            candidates.add(i);
-        }
-    }
-    if (candidates.isEmpty()) {
-        // 没有概率>0的环，进度保留不动，等待行为提升概率
-        p.sendMessage(Text.literal("缘分已至，但你尚未通过行为提升任何气环的概率……"), false);
-    } else {
-        d.setProgress(0); // 清空进度
-        int chosen;
-        if (!d.hasAnyRing()) {
-            // 初次觉醒：选概率最高的
-            candidates.sort((a, b) -> Float.compare(d.getChance(b), d.getChance(a)));
-            chosen = candidates.get(0);
-            p.sendMessage(Text.literal("初次觉悟！领悟了" + BuffNames.NAME[chosen] + "！"), false);
-        } else {
-            // 后续觉醒：随机选
-            chosen = candidates.get(RANDOM.nextInt(candidates.size()));
-            p.sendMessage(Text.literal("缘分所至，领悟了" + BuffNames.NAME[chosen] + "！"), false);
-        }
-        unlockBuff(p, d, chosen);
-        d.updateMaxProgress();
-    }
-}}
+            // 进度满后觉醒
+            if (d.getProgress() >= d.getMaxProgress()) {
+                List<Integer> candidates = new ArrayList<>();
+                for (int i = 1; i <= 10; i++) {
+                    if (!d.isUnlocked(i) && d.getChance(i) > 0.0f) {
+                        candidates.add(i);
+                    }
+                }
+                if (candidates.isEmpty()) {
+                    p.sendMessage(Text.literal("缘分已至，但你尚未通过行为提升任何气环的概率……"), false);
+                } else {
+                    d.setProgress(0);
+                    int chosen;
+                    if (!d.hasAnyRing()) {
+                        // 初次觉醒：选概率最高的
+                        candidates.sort((a, b) -> Float.compare(d.getChance(b), d.getChance(a)));
+                        chosen = candidates.get(0);
+                        p.sendMessage(Text.literal("初次觉悟！领悟了" + BuffNames.NAME[chosen] + "！"), false);
+                    } else {
+                        // 后续觉醒：随机选
+                        chosen = candidates.get(RANDOM.nextInt(candidates.size()));
+                        p.sendMessage(Text.literal("缘分所至，领悟了" + BuffNames.NAME[chosen] + "！"), false);
+                    }
+                    unlockBuff(p, d, chosen);
+                    d.updateMaxProgress();
+                }
+            }
             p.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100, 0, false, false));
             p.setPose(net.minecraft.entity.EntityPose.SITTING);
         }
@@ -109,10 +108,9 @@ public class BuffEventHandler {
             int cd = d.getDuration(8);
             if (cd <= 0) { giveRandomWeapon(p, d); d.setDuration(8, 600); }
             else d.setDuration(8, cd - 1);
-        }
+         }
 
-
-            if (d.isActive(11)) {
+        if (d.isActive(11)) {
             d.setPlayTicks(d.getPlayTicks() + 1);
             if (d.getPlayTicks() % (20 * 60 * 5) == 0) {
                 for (int i = 1; i <= 10; i++) if (d.isActive(i) && d.getLevel(i) < 99) upgradeBuff(p, d, i);
@@ -227,7 +225,8 @@ public static void onKillEntity(ServerPlayerEntity p, PlayerBuffData d, LivingEn
         p.heal(d.getKillHealAmount());
     }
     d.addKill();
-public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float probInc, long cultivationInc, boolean isMeditating) {
+}
+    public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float probInc, long cultivationInc, boolean isMeditating) {
     d.addCultivation(cultivationInc);
     boolean all10 = true;
     for (int i = 0; i < 10; i++) {
@@ -245,7 +244,6 @@ public static void processActivity(ServerPlayerEntity p, PlayerBuffData d, float
 }
 
 public static boolean tryUnlockFirstRing(ServerPlayerEntity p, PlayerBuffData d) {
-    // 行为不再自动解锁，此方法仅保留兼容性，不做任何操作
     return false;
 }
 
