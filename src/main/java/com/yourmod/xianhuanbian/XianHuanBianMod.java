@@ -61,27 +61,27 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
         PlayerBuffData data = PlayerBuffData.get(player);
         BuffEventHandler.applyActiveBuffs(player, data);
         BuffEventHandler.tickObserverMode(player, data);
-
-        // 第八环：背包中工具/武器总数 ≥15 时自动完成行为
-        if (!data.hasAnyRing() && !data.isBehaviorDone(8)) {
-            int toolCount = 0;
-            for (ItemStack stack : player.getInventory().main) {
-                if (stack.getItem() instanceof ToolItem || stack.getItem() instanceof SwordItem) {
-                    toolCount += stack.getCount();
+        
+                // 第八环背包检测（始终生效）
+                if (!data.isBehaviorDone(8)) {
+                    int toolCount = 0;
+                    for (ItemStack stack : player.getInventory().main) {
+                        if (stack.getItem() instanceof ToolItem || stack.getItem() instanceof SwordItem) {
+                            toolCount += stack.getCount();
+                        }
+                    }
+                    ItemStack offhand = player.getOffHandStack();
+                    if (offhand.getItem() instanceof ToolItem || offhand.getItem() instanceof SwordItem) {
+                        toolCount += offhand.getCount();
+                    }
+                    if (toolCount >= 15) {
+                        data.setBehaviorDone(8);
+                        data.setChance(8, 0.2f);   // 关键：必须设置概率为 20%
+                        data.save(player);
+                        syncToClient(player, data);
+                    }
                 }
-            }
-            ItemStack offhand = player.getOffHandStack();
-            if (offhand.getItem() instanceof ToolItem || offhand.getItem() instanceof SwordItem) {
-                toolCount += offhand.getCount();
-            }
-                           if (toolCount >= 15) {
-                    data.setBehaviorDone(8);
-                    data.setChance(8, 0.2f);   // 必须同时设置概率为 20%
-                    data.save(player);
-                    syncToClient(player, data);
-                }
-        }
-
+        
         UUID id = player.getUuid();
         Vec3d cur = player.getPos();
         Vec3d last = lastPositions.get(id);
