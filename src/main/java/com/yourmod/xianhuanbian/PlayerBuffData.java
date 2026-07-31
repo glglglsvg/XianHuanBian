@@ -85,7 +85,7 @@ public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
 public boolean isActive(int id) { return active[id]; }
 public void setActive(int id, boolean v) { active[id] = v; }
 public float getChance(int id) { return chance[id]; }
-public void setChance(int id, float v) { chance[id] = v; }
+ public void setChance(int id, float v) { chance[id] = v; } 
 public void increaseChance(int id, float inc) { chance[id] += inc; }
 public int getLevel(int id) { return levels[id]; }
 public void setLevel(int id, int lv) { levels[id] = lv; }
