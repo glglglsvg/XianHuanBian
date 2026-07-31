@@ -74,11 +74,12 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (offhand.getItem() instanceof ToolItem || offhand.getItem() instanceof SwordItem) {
                 toolCount += offhand.getCount();
             }
-            if (toolCount >= 15) {
-                data.setBehaviorDone(8);
-                data.save(player);
-                syncToClient(player, data);
-            }
+                           if (toolCount >= 15) {
+                    data.setBehaviorDone(8);
+                    data.setChance(8, 0.2f);   // 必须同时设置概率为 20%
+                    data.save(player);
+                    syncToClient(player, data);
+                }
         }
 
         UUID id = player.getUuid();
