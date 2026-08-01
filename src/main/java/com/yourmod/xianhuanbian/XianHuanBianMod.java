@@ -62,7 +62,7 @@ ServerTickEvents.END_SERVER_TICK.register(server -> {
         BuffEventHandler.applyActiveBuffs(player, data);
         BuffEventHandler.tickObserverMode(player, data);
         
-                // 第八环背包检测（始终生效）
+                                // 第八环背包检测（始终生效）
                 if (!data.isBehaviorDone(8)) {
                     int toolCount = 0;
                     for (ItemStack stack : player.getInventory().main) {
