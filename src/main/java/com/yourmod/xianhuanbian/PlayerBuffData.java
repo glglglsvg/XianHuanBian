@@ -8,6 +8,7 @@ import java.util.*;
 public class PlayerBuffData {
     public static final Map<UUID, PlayerBuffData> SERVER_DATA = new HashMap<>();
     private static PlayerBuffData CLIENT_CACHE = new PlayerBuffData();
+    private static final Random RANDOM = new Random();
 
     private boolean[] unlocked = new boolean[13];
     private boolean[] active = new boolean[13];
@@ -39,6 +40,7 @@ public class PlayerBuffData {
     private int eatCount = 0, sneakJumpCount = 0, itemKillCount = 0;
     private double walkDist = 0;
     private int breakCount = 0, plantCount = 0, placeCount = 0, craftToolCount = 0, fireWaterCount = 0;
+    private int[] behaviorNeeded = new int[11];   // 初次行为需求次数
 
     // 缘分进度
     private int progress = 0;
@@ -46,6 +48,7 @@ public class PlayerBuffData {
 
     public PlayerBuffData() {
         Arrays.fill(chance, 0.0f);
+        Arrays.fill(behaviorNeeded, 0);          // 0 表示待随机初始化
         for (int i = 1; i <= 12; i++) {
             levels[i] = 1;
             upgradeCost[i] = 200;
@@ -80,144 +83,171 @@ public class PlayerBuffData {
         ServerWorld world = player.getServerWorld();
         XianHuanState.get(world).removePlayer(player.getUuid());
     }
-    public boolean isUnlocked(int id) { return unlocked[id]; }
-public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
-public boolean isActive(int id) { return active[id]; }
-public void setActive(int id, boolean v) { active[id] = v; }
-public float getChance(int id) { return chance[id]; }
- public void setChance(int id, float v) { chance[id] = v; } 
-public void increaseChance(int id, float inc) { chance[id] += inc; }
-public int getLevel(int id) { return levels[id]; }
-public void setLevel(int id, int lv) { levels[id] = lv; }
-public int getDuration(int id) { return durations[id]; }
-public void setDuration(int id, int v) { durations[id] = v; }
-public int getMaxDuration(int id) { return maxDurations[id]; }
-public void setMaxDuration(int id, int v) { maxDurations[id] = v; }
-public long getUpgradeCost(int id) { return upgradeCost[id]; }
-public void setUpgradeCost(int id, long cost) { upgradeCost[id] = cost; }
-public long getCultivation() { return cultivation; }
-public void addCultivation(long amt) { cultivation += amt; }
-public void setCultivation(long v) { cultivation = v; }
-public int getEnergy() { return energy; }
-public void setEnergy(int v) { energy = Math.max(0, Math.min(maxEnergy, v)); }
-public void addEnergy(int v) { setEnergy(energy + v); }
-public int getMaxEnergy() { return maxEnergy; }
-public void setMaxEnergy(int v) { maxEnergy = v; }
-public float getEnergyCostPerTick() { return energyCostPerTick; }
-public void setEnergyCostPerTick(float v) { energyCostPerTick = v; }
-public long getPlayTicks() { return playTicks; }
-public void setPlayTicks(long t) { playTicks = t; }
-public double getGlobalAttack() { return globalAttack; }
-public void setGlobalAttack(double v) { globalAttack = v; }
-public int getMaxHealthBonus() { return maxHealthBonus; }
-public void setMaxHealthBonus(int v) { maxHealthBonus = v; }
-public int getKillHealAmount() { return killHealAmount; }
-public void setKillHealAmount(int v) { killHealAmount = v; }
-public double getKillMultiplier() { return killMultiplier; }
-public void setKillMultiplier(double v) { killMultiplier = v; }
-public int getRegenLevel() { return regenLevel; }
-public void setRegenLevel(int v) { regenLevel = v; }
-public int getAvailablePoints() { return availablePoints; }
-public void setAvailablePoints(int v) { availablePoints = v; }
-public void addAvailablePoints(int v) { availablePoints += v; }
-public int getStrength() { return strength; }
-public void setStrength(int v) { strength = v; }
-public int getSpeed() { return speed; }
-public void setSpeed(int v) { speed = v; }
-public int getVitality() { return vitality; }
-public void setVitality(int v) { vitality = v; }
-public int getKillCounter() { return killCounter; }
-public void setKillCounter(int v) { killCounter = v; }
-public void addKill() { killCounter++; if (killCounter >= 20) { killCounter = 0; availablePoints++; } }
-public boolean isMeditating() { return isMeditating; }
-public void setMeditating(boolean v) { isMeditating = v; }
-public int getMeditateTimer() { return meditateTimer; }
-public void setMeditateTimer(int v) { meditateTimer = v; }
-public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
-public void setBehaviorDone(int id) { behaviorDone[id] = true; }
+        public boolean isUnlocked(int id) { return unlocked[id]; }
+    public void setUnlocked(int id, boolean v) { unlocked[id] = v; }
+    public boolean isActive(int id) { return active[id]; }
+    public void setActive(int id, boolean v) { active[id] = v; }
+    public float getChance(int id) { return chance[id]; }
+    public void setChance(int id, float v) { chance[id] = v; }
+    public void increaseChance(int id, float inc) { chance[id] += inc; }
+    public int getLevel(int id) { return levels[id]; }
+    public void setLevel(int id, int lv) { levels[id] = lv; }
+    public int getDuration(int id) { return durations[id]; }
+    public void setDuration(int id, int v) { durations[id] = v; }
+    public int getMaxDuration(int id) { return maxDurations[id]; }
+    public void setMaxDuration(int id, int v) { maxDurations[id] = v; }
+    public long getUpgradeCost(int id) { return upgradeCost[id]; }
+    public void setUpgradeCost(int id, long cost) { upgradeCost[id] = cost; }
+    public long getCultivation() { return cultivation; }
+    public void addCultivation(long amt) { cultivation += amt; }
+    public void setCultivation(long v) { cultivation = v; }
+    public int getEnergy() { return energy; }
+    public void setEnergy(int v) { energy = Math.max(0, Math.min(maxEnergy, v)); }
+    public void addEnergy(int v) { setEnergy(energy + v); }
+    public int getMaxEnergy() { return maxEnergy; }
+    public void setMaxEnergy(int v) { maxEnergy = v; }
+    public float getEnergyCostPerTick() { return energyCostPerTick; }
+    public void setEnergyCostPerTick(float v) { energyCostPerTick = v; }
+    public long getPlayTicks() { return playTicks; }
+    public void setPlayTicks(long t) { playTicks = t; }
+    public double getGlobalAttack() { return globalAttack; }
+    public void setGlobalAttack(double v) { globalAttack = v; }
+    public int getMaxHealthBonus() { return maxHealthBonus; }
+    public void setMaxHealthBonus(int v) { maxHealthBonus = v; }
+    public int getKillHealAmount() { return killHealAmount; }
+    public void setKillHealAmount(int v) { killHealAmount = v; }
+    public double getKillMultiplier() { return killMultiplier; }
+    public void setKillMultiplier(double v) { killMultiplier = v; }
+    public int getRegenLevel() { return regenLevel; }
+    public void setRegenLevel(int v) { regenLevel = v; }
+    public int getAvailablePoints() { return availablePoints; }
+    public void setAvailablePoints(int v) { availablePoints = v; }
+    public void addAvailablePoints(int v) { availablePoints += v; }
+    public int getStrength() { return strength; }
+    public void setStrength(int v) { strength = v; }
+    public int getSpeed() { return speed; }
+    public void setSpeed(int v) { speed = v; }
+    public int getVitality() { return vitality; }
+    public void setVitality(int v) { vitality = v; }
+    public int getKillCounter() { return killCounter; }
+    public void setKillCounter(int v) { killCounter = v; }
+    public void addKill() { killCounter++; if (killCounter >= 20) { killCounter = 0; availablePoints++; } }
+    public boolean isMeditating() { return isMeditating; }
+    public void setMeditating(boolean v) { isMeditating = v; }
+    public int getMeditateTimer() { return meditateTimer; }
+    public void setMeditateTimer(int v) { meditateTimer = v; }
+    public boolean isBehaviorDone(int id) { return behaviorDone[id]; }
+    public void setBehaviorDone(int id) { behaviorDone[id] = true; }
+    public int getBehaviorNeeded(int id) { return behaviorNeeded[id]; }
+    public void setBehaviorNeeded(int id, int val) { behaviorNeeded[id] = val; }
 
-public int getProgress() { return progress; }
-public void setProgress(int v) { progress = Math.max(0, Math.min(v, maxProgress)); }
-public void addProgress(int v) { setProgress(progress + v); }
-public int getMaxProgress() { return maxProgress; }
-public void updateMaxProgress() {
-    int count = 0;
-    for (int i = 1; i <= 10; i++) if (unlocked[i]) count++;
-    maxProgress = 100 + (count - 1) * 50;
-}
-   public void addEat() {
-    int needed = hasAnyRing() ? 280 : 28;
-    if (!behaviorDone[1]) { eatCount++; if (eatCount >= needed) { setBehaviorDone(1); chance[1] = 0.2f; } }
-}
-public void addSneakJump() {
-    int needed = hasAnyRing() ? 5000 : 500;
-    if (!behaviorDone[2]) { sneakJumpCount++; if (sneakJumpCount >= needed) { setBehaviorDone(2); chance[2] = 0.2f; } }
-}
-public void addItemKill() {
-    int needed = hasAnyRing() ? 150 : 15;
-    if (!behaviorDone[3]) { itemKillCount++; if (itemKillCount >= needed) { setBehaviorDone(3); chance[3] = 0.2f; } }
-}
-public void addWalkDist(double d) {
-    int needed = hasAnyRing() ? 10000 : 1000;
-    if (!behaviorDone[4]) { walkDist += d; if (walkDist >= needed) { setBehaviorDone(4); chance[4] = 0.2f; } }
-}
-public void addBreak() {
-    int needed = hasAnyRing() ? 1000 : 100;
-    if (!behaviorDone[5]) { breakCount++; if (breakCount >= needed) { setBehaviorDone(5); chance[5] = 0.2f; } }
-}
-public void addPlant() {
-    int needed = hasAnyRing() ? 150 : 15;
-    if (!behaviorDone[6]) { plantCount++; if (plantCount >= needed) { setBehaviorDone(6); chance[6] = 0.2f; } }
-}
-public void addPlace() {
-    int needed = hasAnyRing() ? 720 : 72;
-    if (!behaviorDone[7]) { placeCount++; if (placeCount >= needed) { setBehaviorDone(7); chance[7] = 0.2f; } }
-}
-public void addCraftTool() {
-    int needed = hasAnyRing() ? 150 : 15;
-    if (!behaviorDone[8]) { craftToolCount++; if (craftToolCount >= needed) { setBehaviorDone(8); chance[8] = 0.2f; } }
-}
-public void addFireWater() {
-    int needed = hasAnyRing() ? 280 : 28;
-    if (!behaviorDone[9]) { fireWaterCount++; if (fireWaterCount >= needed) { setBehaviorDone(9); chance[9] = 0.2f; } }
-}
-public void checkExp(float level) {
-    if (!behaviorDone[10] && level >= 2.0f) { setBehaviorDone(10); chance[10] = 0.2f; }
-}
-public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
-
-public void applyBehaviorChances() {
-    for (int i = 1; i <= 10; i++) {
-        if (behaviorDone[i]) chance[i] = 0.2f;
-        else chance[i] = 0.0f;
+    public int getProgress() { return progress; }
+    public void setProgress(int v) { progress = Math.max(0, Math.min(v, maxProgress)); }
+    public void addProgress(int v) { setProgress(progress + v); }
+    public int getMaxProgress() { return maxProgress; }
+    public void updateMaxProgress() {
+        int count = 0;
+        for (int i = 1; i <= 10; i++) if (unlocked[i]) count++;
+        maxProgress = 100 + (count - 1) * 50;
     }
-}
+        public void addEat() {
+        if (!behaviorDone[1]) {
+            if (behaviorNeeded[1] == 0) behaviorNeeded[1] = 30 + RANDOM.nextInt(16);
+            eatCount++;
+            if (eatCount >= behaviorNeeded[1]) { setBehaviorDone(1); chance[1] = 0.2f; }
+        }
+    }
+    public void addSneakJump() {
+        if (!behaviorDone[2]) {
+            if (behaviorNeeded[2] == 0) behaviorNeeded[2] = 30 + RANDOM.nextInt(16);
+            sneakJumpCount++;
+            if (sneakJumpCount >= behaviorNeeded[2]) { setBehaviorDone(2); chance[2] = 0.2f; }
+        }
+    }
+    public void addItemKill() {
+        if (!behaviorDone[3]) {
+            if (behaviorNeeded[3] == 0) behaviorNeeded[3] = 30 + RANDOM.nextInt(16);
+            itemKillCount++;
+            if (itemKillCount >= behaviorNeeded[3]) { setBehaviorDone(3); chance[3] = 0.2f; }
+        }
+    }
+    public void addWalkDist(double d) {
+        if (!behaviorDone[4]) {
+            if (behaviorNeeded[4] == 0) behaviorNeeded[4] = 1000;   // 第四环固定 1000 格
+            walkDist += d;
+            if (walkDist >= behaviorNeeded[4]) { setBehaviorDone(4); chance[4] = 0.2f; }
+        }
+    }
+    public void addBreak() {
+        if (!behaviorDone[5]) {
+            if (behaviorNeeded[5] == 0) behaviorNeeded[5] = 30 + RANDOM.nextInt(16);
+            breakCount++;
+            if (breakCount >= behaviorNeeded[5]) { setBehaviorDone(5); chance[5] = 0.2f; }
+        }
+    }
+    public void addPlant() {
+        if (!behaviorDone[6]) {
+            if (behaviorNeeded[6] == 0) behaviorNeeded[6] = 30 + RANDOM.nextInt(16);
+            plantCount++;
+            if (plantCount >= behaviorNeeded[6]) { setBehaviorDone(6); chance[6] = 0.2f; }
+        }
+    }
+    public void addPlace() {
+        if (!behaviorDone[7]) {
+            if (behaviorNeeded[7] == 0) behaviorNeeded[7] = 30 + RANDOM.nextInt(16);
+            placeCount++;
+            if (placeCount >= behaviorNeeded[7]) { setBehaviorDone(7); chance[7] = 0.2f; }
+        }
+    }
+    // 第八环：保留原有计数方式，背包检测在 XianHuanBianMod 中补充概率
+    public void addCraftTool() {
+        int needed = hasAnyRing() ? 150 : 15;
+        if (!behaviorDone[8]) { craftToolCount++; if (craftToolCount >= needed) { setBehaviorDone(8); chance[8] = 0.2f; } }
+    }
+    public void addFireWater() {
+        if (!behaviorDone[9]) {
+            if (behaviorNeeded[9] == 0) behaviorNeeded[9] = 30 + RANDOM.nextInt(16);
+            fireWaterCount++;
+            if (fireWaterCount >= behaviorNeeded[9]) { setBehaviorDone(9); chance[9] = 0.2f; }
+        }
+    }
+    public void checkExp(float level) {
+        if (!behaviorDone[10] && level >= 2.0f) { setBehaviorDone(10); chance[10] = 0.2f; }
+    }
+    public boolean hasAnyRing() { for (int i = 1; i <= 10; i++) if (unlocked[i]) return true; return false; }
 
-public void resetChancesForHardMode() { Arrays.fill(chance, 0.0f); adjustChances(); }
-public float getEffectiveChance(int id, boolean isMeditating) {
-    float base = chance[id];
-    if (isMeditating) base *= 3.0f;
-    int unlockedCount = 0;
-    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
-    if (unlockedCount >= 2) base *= 0.1f;
-    return Math.min(base, 1.0f);
-}
-public void adjustChances() {
-    int unlockedCount = 0;
-    for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
-    if (unlockedCount >= 2) for (int i = 1; i <= 10; i++) if (!unlocked[i]) chance[i] = 0.000001f / unlockedCount;
-}
-public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f); energy = Math.min(energy, maxEnergy); }
-private int calcDuration(int level, int baseMin) { if (level >= 10) return 0; return baseMin * 20 + (level - 1) * (baseMin / 9) * 20; }
-public void activate(int id, int baseMin) { setActive(id, true); if (baseMin == 0) setDuration(id, 0); else setDuration(id, calcDuration(getLevel(id), baseMin)); }
-public void onLevelUp(int id) { upgradeEnergy(); if (maxDurations[id] != 0) { int lv = getLevel(id); if (lv >= 10) setDuration(id, 0); else setDuration(id, calcDuration(lv, 60)); } }
+    public void applyBehaviorChances() {
+        for (int i = 1; i <= 10; i++) {
+            if (behaviorDone[i]) chance[i] = 0.2f;
+            else chance[i] = 0.0f;
+        }
+    }
 
-public float getCurrentChance(int id) {
-    float base = 0.00001f;
-    if (behaviorDone[id]) base += 0.1f;
-    return base;
-}
-       public static PlayerBuffData getClient() { return CLIENT_CACHE; }
+    public void resetChancesForHardMode() { Arrays.fill(chance, 0.0f); adjustChances(); }
+    public float getEffectiveChance(int id, boolean isMeditating) {
+        float base = chance[id];
+        if (isMeditating) base *= 3.0f;
+        int unlockedCount = 0;
+        for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+        if (unlockedCount >= 2) base *= 0.1f;
+        return Math.min(base, 1.0f);
+    }
+    public void adjustChances() {
+        int unlockedCount = 0;
+        for (int i = 1; i <= 10; i++) if (unlocked[i]) unlockedCount++;
+        if (unlockedCount >= 2) for (int i = 1; i <= 10; i++) if (!unlocked[i]) chance[i] = 0.000001f / unlockedCount;
+    }
+    public void upgradeEnergy() { maxEnergy += 5; energyCostPerTick = Math.max(0.2f, energyCostPerTick - 0.05f); energy = Math.min(energy, maxEnergy); }
+    private int calcDuration(int level, int baseMin) { if (level >= 10) return 0; return baseMin * 20 + (level - 1) * (baseMin / 9) * 20; }
+    public void activate(int id, int baseMin) { setActive(id, true); if (baseMin == 0) setDuration(id, 0); else setDuration(id, calcDuration(getLevel(id), baseMin)); }
+    public void onLevelUp(int id) { upgradeEnergy(); if (maxDurations[id] != 0) { int lv = getLevel(id); if (lv >= 10) setDuration(id, 0); else setDuration(id, calcDuration(lv, 60)); } }
+
+    public float getCurrentChance(int id) {
+        float base = 0.00001f;
+        if (behaviorDone[id]) base += 0.1f;
+        return base;
+    }
+        public static PlayerBuffData getClient() { return CLIENT_CACHE; }
     public static void updateClientFromNbt(NbtCompound tag) { CLIENT_CACHE = fromNbt(tag); }
 
     public static PlayerBuffData fromNbt(NbtCompound tag) {
@@ -233,6 +263,7 @@ public float getCurrentChance(int id) {
         for (int i = 1; i <= 10; i++) {
             data.chance[i] = tag.getFloat("chance" + i);
             data.behaviorDone[i] = tag.getBoolean("bdone" + i);
+            data.behaviorNeeded[i] = tag.getInt("need" + i);
         }
         data.eatCount = tag.getInt("eat");
         data.sneakJumpCount = tag.getInt("sneakjump");
@@ -258,7 +289,11 @@ public float getCurrentChance(int id) {
             tag.putInt("level" + i, levels[i]); tag.putInt("dur" + i, durations[i]);
             tag.putInt("maxDur" + i, maxDurations[i]); tag.putLong("cost" + i, upgradeCost[i]);
         }
-        for (int i = 1; i <= 10; i++) { tag.putFloat("chance" + i, chance[i]); tag.putBoolean("bdone" + i, behaviorDone[i]); }
+        for (int i = 1; i <= 10; i++) {
+            tag.putFloat("chance" + i, chance[i]);
+            tag.putBoolean("bdone" + i, behaviorDone[i]);
+            tag.putInt("need" + i, behaviorNeeded[i]);
+        }
         tag.putInt("eat", eatCount); tag.putInt("sneakjump", sneakJumpCount); tag.putInt("ikill", itemKillCount);
         tag.putDouble("walk", walkDist); tag.putInt("break", breakCount); tag.putInt("plant", plantCount);
         tag.putInt("place", placeCount); tag.putInt("craft", craftToolCount); tag.putInt("fire", fireWaterCount);
@@ -273,4 +308,4 @@ public float getCurrentChance(int id) {
         tag.putInt("maxProgress", maxProgress);
         return tag;
     }
-} 
+}
